@@ -58,3 +58,4 @@
 - [x] 修復：營利圖上傳成功但不顯示在公開頁面（uploadPublishedImage 未寫入 DB）
 - [x] Dashboard 每日觀點頁加回主頁面按鈕（方便 owner 操作，改為新分頁開啟）
 - [x] 訪客頁右上角「認識 Patric」按鈕改顯眼樣式（綠色填充+微動畫）
+- [x] 觀點卡片一鍵下載為單張圖片（html2canvas 渲染，3x 解析度）

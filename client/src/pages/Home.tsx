@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
+import html2canvas from "html2canvas";
 
 type AnalysisResult = {
   coin: string;
@@ -649,6 +650,33 @@ export default function Home() {
                         >
                           {copiedField === "viewpoint-text" ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
                           複製文字版
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 bg-emerald-600 hover:bg-emerald-500 text-white"
+                          onClick={async () => {
+                            const el = document.getElementById("viewpoint-card");
+                            if (!el) return;
+                            toast.info("正在產生圖片...");
+                            try {
+                              const canvas = await html2canvas(el, {
+                                backgroundColor: "#09090b",
+                                scale: 3,
+                                useCORS: true,
+                                logging: false,
+                              });
+                              const link = document.createElement("a");
+                              link.download = `${analysisResult.coin}-${analysisResult.timeframe}-觀點.png`;
+                              link.href = canvas.toDataURL("image/png");
+                              link.click();
+                              toast.success("圖片已下載");
+                            } catch {
+                              toast.error("圖片產生失敗");
+                            }
+                          }}
+                        >
+                          <ImageIcon className="h-3 w-3 mr-1" />
+                          下載圖片
                         </Button>
                       </>
                     )}

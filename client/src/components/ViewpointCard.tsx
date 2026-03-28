@@ -171,9 +171,16 @@ export default function ViewpointCard({
               ${Number(corgiBoxLow).toLocaleString()}
             </p>
           </div>
-          <div className={`bg-${accentColor}-950/30 rounded-xl p-3 border border-${accentColor}-800/30`}>
-            <p className={`text-[10px] text-${accentColor}-400 uppercase tracking-wider`}>0.5 關鍵位</p>
-            <p className={`font-mono font-bold text-sm text-${accentColor}-300 mt-1`}>
+          <div className="rounded-xl p-3 border" style={{
+              backgroundColor: direction === "bullish" ? "rgba(4,120,87,0.15)" : direction === "bearish" ? "rgba(153,27,27,0.15)" : "rgba(133,77,14,0.15)",
+              borderColor: direction === "bullish" ? "rgba(16,185,129,0.3)" : direction === "bearish" ? "rgba(239,68,68,0.3)" : "rgba(234,179,8,0.3)",
+            }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{
+              color: direction === "bullish" ? "#34d399" : direction === "bearish" ? "#f87171" : "#facc15",
+            }}>0.5 關鍵位</p>
+            <p className="font-mono font-bold text-sm mt-1" style={{
+              color: direction === "bullish" ? "#6ee7b7" : direction === "bearish" ? "#fca5a5" : "#fde047",
+            }}>
               ${Number(corgiBox05).toLocaleString()}
             </p>
           </div>
