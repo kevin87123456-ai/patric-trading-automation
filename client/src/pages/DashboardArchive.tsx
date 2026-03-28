@@ -39,7 +39,7 @@ function TradeResultBadge({ result }: { result: string | null }) {
   if (result === "profit") {
     return (
       <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold px-2">
-        營利
+        盈利
       </Badge>
     );
   }
@@ -70,7 +70,7 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
 
   const uploadImageMutation = trpc.analysis.uploadPublishedImage.useMutation({
     onSuccess: (res) => {
-      toast.success(`${res.imageType === "profit" ? "營利" : "虧損"}截圖已上傳`);
+      toast.success(`${res.imageType === "profit" ? "盈利" : "虧損"}截圖已上傳`);
       refetch();
     },
     onError: (err) => toast.error(err.message),
@@ -181,11 +181,11 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <span className="text-xs font-medium text-emerald-400">營利截圖</span>
+            <span className="text-xs font-medium text-emerald-400">盈利截圖</span>
           </div>
           {(data as any).profitImage ? (
             <div className="rounded-xl overflow-hidden border border-emerald-500/20 relative group">
-              <img src={(data as any).profitImage} alt="營利截圖" className="w-full object-contain bg-zinc-900" />
+              <img src={(data as any).profitImage} alt="盈利截圖" className="w-full object-contain bg-zinc-900" />
               <div
                 className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                 onClick={() => profitInputRef.current?.click()}
@@ -199,7 +199,7 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
               onClick={() => profitInputRef.current?.click()}
             >
               <Upload className="h-5 w-5 text-emerald-500/50" />
-              <span className="text-xs text-zinc-500">上傳營利截圖</span>
+              <span className="text-xs text-zinc-500">上傳盈利截圖</span>
             </div>
           )}
           <input
@@ -267,7 +267,7 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-zinc-400" />
             <span className="text-sm font-medium text-zinc-300">
-              {isProfit ? "營利原因" : isLoss ? "虧損復盤" : "交易紀錄"}
+              {isProfit ? "盈利原因" : isLoss ? "虧損復盤" : "交易紀錄"}
             </span>
             {tradeResult && <TradeResultBadge result={tradeResult} />}
           </div>
@@ -276,10 +276,10 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
             onChange={(e) => setTradeNote(e.target.value)}
             placeholder={
               isProfit
-                ? "記錄這筆交易為什麼營利，做對了什麼..."
+                ? "記錄這筆交易為什麼盈利，做對了什麼..."
                 : isLoss
                 ? "復盤這筆交易，哪裡出了問題，下次如何改進..."
-                : "上傳營利或虧損截圖後，在這裡記錄原因或復盤..."
+                : "上傳盈利或虧損截圖後，在這裡記錄原因或復盤..."
             }
             className="min-h-[120px] bg-zinc-800/50 border-zinc-700 text-sm resize-none"
           />

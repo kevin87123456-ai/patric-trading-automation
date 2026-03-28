@@ -86,6 +86,16 @@ export default function PublicArchive() {
                                 {item.timeframe}
                               </Badge>
                               <DirectionLabel direction={item.direction} />
+                              {item.tradeResult === "profit" && (
+                                <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold px-2">
+                                  盈利
+                                </Badge>
+                              )}
+                              {item.tradeResult === "loss" && (
+                                <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-[10px] font-bold px-2">
+                                  虧損
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-zinc-500 mt-1 truncate max-w-[300px]">
                               {item.analysisText}

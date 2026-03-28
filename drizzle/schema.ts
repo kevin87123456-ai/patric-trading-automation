@@ -72,8 +72,8 @@ export const publishedAnalyses = mysqlTable("published_analyses", {
   summary: text("summary"),
   profitImage: text("profitImage"),
   lossImage: text("lossImage"),
-  tradeResult: mysqlEnum("tradeResult", ["profit", "loss"]),  // 營利 or 虧損
-  tradeNote: text("tradeNote"),  // 營利原因 or 虧損復盤
+  tradeResult: mysqlEnum("tradeResult", ["profit", "loss"]),  // 盈利 or 虧損
+  tradeNote: text("tradeNote"),  // 盈利原因 or 虧損復盤
   publishedAt: timestamp("publishedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
