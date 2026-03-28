@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, analyses, generatedMaterials, type InsertAnalysis, type InsertGeneratedMaterial } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -89,4 +88,81 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ===== Analysis CRUD =====
+
+export async function createAnalysis(data: InsertAnalysis) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(analyses).values(data);
+  const insertId = result[0].insertId;
+  const rows = await db.select().from(analyses).where(eq(analyses.id, insertId)).limit(1);
+  return rows[0];
+}
+
+export async function getAnalysisById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select().from(analyses).where(eq(analyses.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function updateAnalysis(id: number, data: Partial<InsertAnalysis>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(analyses).set(data).where(eq(analyses.id, id));
+  return getAnalysisById(id);
+}
+
+export async function listAnalysesByUser(userId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(analyses).where(eq(analyses.userId, userId)).orderBy(desc(analyses.createdAt)).limit(limit);
+}
+
+// ===== Generated Materials CRUD =====
+
+export async function createMaterials(dataList: InsertGeneratedMaterial[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(generatedMaterials).values(dataList);
+  // Return all materials for this analysis
+  if (dataList.length > 0) {
+    return db.select().from(generatedMaterials).where(eq(generatedMaterials.analysisId, dataList[0].analysisId)).orderBy(desc(generatedMaterials.createdAt));
+  }
+  return [];
+}
+
+export async function getMaterialsByAnalysis(analysisId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(generatedMaterials).where(eq(generatedMaterials.analysisId, analysisId));
+}
+
+export async function selectMaterial(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // First get the material to find its analysisId
+  const rows = await db.select().from(generatedMaterials).where(eq(generatedMaterials.id, id)).limit(1);
+  if (!rows[0]) throw new Error("Material not found");
+  const analysisId = rows[0].analysisId;
+  // Deselect all for this analysis
+  await db.update(generatedMaterials).set({ isSelected: 0 }).where(eq(generatedMaterials.analysisId, analysisId));
+  // Select the chosen one
+  await db.update(generatedMaterials).set({ isSelected: 1 }).where(eq(generatedMaterials.id, id));
+  return db.select().from(generatedMaterials).where(eq(generatedMaterials.id, id)).limit(1).then(r => r[0]);
+}
+
+export async function markMaterialSynced(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(generatedMaterials).set({ syncedToSheets: 1 }).where(eq(generatedMaterials.id, id));
+}
+
+export async function getSelectedMaterialForAnalysis(analysisId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select().from(generatedMaterials)
+    .where(eq(generatedMaterials.analysisId, analysisId))
+    .limit(50);
+  return rows.find(r => r.isSelected === 1) ?? null;
+}

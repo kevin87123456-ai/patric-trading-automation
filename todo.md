@@ -1,0 +1,21 @@
+# Project TODO
+
+- [x] 資料庫 schema 設計（analyses 分析記錄表、generated_materials 素材表）
+- [x] 深色主題視覺風格設定（加密貨幣專業工具風格）
+- [x] 後端 LLM 盤面分析 API（上傳圖片 → 識別柯基框關鍵位階）
+- [x] 後端素材生成 API（3 組 8 字封面大標 + YouTube 爆款標題）
+- [x] 後端社群文案生成 API（IG 打臉教學型貼文 + 極簡限動文案）
+- [x] 後端 Google Sheets 戰略庫同步 API（寫入日期、幣種、關鍵位階、標題、文案）
+- [x] 後端歷史記錄讀取 API（從資料庫讀取過往直播記錄）
+- [x] 前端 DashboardLayout 整合與導航設計
+- [x] 前端盤面圖片上傳與分析結果展示頁面
+- [x] 前端素材生成結果展示與方案選擇介面
+- [x] 前端社群文案展示與一鍵複製功能
+- [x] 前端 Canva 快速跳轉整合（內建模板連結）
+- [x] 前端歷史記錄查詢頁面（複盤標題點擊率）
+- [x] 用戶認證與權限管理（Manus OAuth，僅 Patric 可存取）
+- [x] 響應式設計（桌面與行動裝置支援）
+- [x] Vitest 單元測試（13 tests passed）
+- [x] 實作真正的 Google Sheets 寫入（後端呼叫 Sheets API append values）
+- [x] 加上 Patric 專屬存取控制（比對 ownerOpenId 限制僅 owner 可用）
+- [x] 對生成結果增加後端驗證（封面標題 8 字、限動 ≤3 句）
