@@ -28,7 +28,7 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: Zap, label: "素材生成", path: "/" },
+  { icon: Zap, label: "素材生成", path: "/dashboard" },
   { icon: History, label: "歷史記錄", path: "/history" },
   { icon: Youtube, label: "YouTube 數據", path: "/youtube" },
   { icon: Globe, label: "公開盤面", path: "/archive", external: true },

@@ -1,10 +1,10 @@
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import ViewpointCard from "@/components/ViewpointCard";
 import {
-  History,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -14,8 +14,10 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
+  Eye,
+  EyeOff,
 } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 function copyToClipboard(text: string, label: string) {
@@ -42,6 +44,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function AnalysisRow({ analysis }: { analysis: any }) {
   const [expanded, setExpanded] = useState(false);
+  const [showViewpoint, setShowViewpoint] = useState(false);
   const materialsQuery = trpc.analysis.get.useQuery(
     { id: analysis.id },
     { enabled: expanded }
@@ -56,6 +59,20 @@ function AnalysisRow({ analysis }: { analysis: any }) {
 
   const materials = materialsQuery.data?.materials || [];
   const selectedMaterial = materials.find((m: any) => m.isSelected === 1);
+
+  // Check if this analysis has a published viewpoint
+  const publishedQuery = trpc.analysis.getPublishStatus.useQuery(
+    { analysisId: analysis.id },
+    { enabled: expanded }
+  );
+
+  const hasViewpoint = publishedQuery.data?.published;
+  let viewpointPriceAlerts: Array<{ price: number; label: string; action: string }> = [];
+  try {
+    if (publishedQuery.data?.priceAlerts) {
+      viewpointPriceAlerts = JSON.parse(publishedQuery.data.priceAlerts);
+    }
+  } catch {}
 
   return (
     <Card className="border-border/50 transition-all hover:border-border">
@@ -114,6 +131,46 @@ function AnalysisRow({ analysis }: { analysis: any }) {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">{parsedResult.analysis}</p>
+            </div>
+          )}
+
+          {/* Viewpoint Card Toggle */}
+          {hasViewpoint && parsedResult && (
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowViewpoint(!showViewpoint);
+                }}
+              >
+                {showViewpoint ? (
+                  <EyeOff className="h-3.5 w-3.5 mr-1.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                {showViewpoint ? "收起觀點卡片" : "展開觀點卡片"}
+              </Button>
+
+              {showViewpoint && (
+                <ViewpointCard
+                  coin={parsedResult.coin || analysis.coin}
+                  timeframe={parsedResult.timeframe || analysis.timeframe}
+                  direction={publishedQuery.data?.direction || parsedResult.direction}
+                  confidence={publishedQuery.data?.confidence || parsedResult.confidence}
+                  corgiBoxHigh={publishedQuery.data?.corgiBoxHigh || parsedResult.corgiBoxHigh}
+                  corgiBoxLow={publishedQuery.data?.corgiBoxLow || parsedResult.corgiBoxLow}
+                  corgiBox05={publishedQuery.data?.corgiBox05 || parsedResult.corgiBox05}
+                  currentPrice={publishedQuery.data?.currentPrice || parsedResult.currentPrice}
+                  analysisText={publishedQuery.data?.analysisText || parsedResult.analysis}
+                  operationView={publishedQuery.data?.operationView || ""}
+                  priceAlerts={viewpointPriceAlerts}
+                  summary={publishedQuery.data?.summary || ""}
+                  publishedAt={publishedQuery.data?.publishedAt as unknown as string}
+                />
+              )}
             </div>
           )}
 

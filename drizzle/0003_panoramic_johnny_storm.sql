@@ -1,0 +1,1 @@
+ALTER TABLE `published_analyses` ADD `summary` text;

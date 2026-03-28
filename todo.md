@@ -15,7 +15,7 @@
 - [x] 前端歷史記錄查詢頁面（複盤標題點擊率）
 - [x] 用戶認證與權限管理（Manus OAuth，僅 Patric 可存取）
 - [x] 響應式設計（桌面與行動裝置支援）
-- [x] Vitest 單元測試（36 tests passed）
+- [x] Vitest 單元測試（50 tests passed）
 - [x] 實作真正的 Google Sheets 寫入（後端呼叫 Sheets API append values）
 - [x] 加上 Patric 專屬存取控制（比對 ownerOpenId 限制僅 owner 可用）
 - [x] 對生成結果增加後端驗證（封面標題 8 字、限動 ≤3 句）
@@ -34,3 +34,12 @@
 - [x] ViewpointCard 生成結果異常格式防護（前端 safeData 驗證）
 - [x] 公開盤面頁 footer 文字更新為「柯基交易室」
 - [x] 公開盤面頁面加上返回主頁按鈕（PublicArchive + PublicAnalysis）
+- [x] 幣種週期新增 15M、W、M
+- [x] 盤面分析可編輯：關鍵價格數字、多空中立方向
+- [x] 觀點卡片可編輯：多空中立方向、操作視角文字
+- [x] 直播素材修正：封面大標禁標點符號、以中文為主
+- [x] 歷史紀錄可展開觀點卡片
+- [x] YouTube 頻道 ID 設定功能（用戶可自行輸入，localStorage 持久化）
+- [x] YouTube 新增今日新增追蹤數顯示
+- [x] 公開盤面對外開放：訪客只看得到公開盤面，其他頁面鎖定僅 owner 可用
+- [x] 公開頁面拔掉返回主頁按鈕

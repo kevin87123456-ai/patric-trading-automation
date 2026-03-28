@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Loader2,
@@ -13,10 +13,14 @@ import {
   RefreshCw,
   Video,
   Radio,
+  TrendingUp,
+  Info,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
-const DEFAULT_CHANNEL_ID = "UCGnBVKPFRpRK_ky7JkDcBTA"; // Placeholder - user can change
+const STORAGE_KEY = "patric_yt_channel_id";
+const DEFAULT_CHANNEL_ID = "UCGnBVKPFRpRK_ky7JkDcBTA";
 
 type FilterType = "videos_latest" | "streams_latest" | "shorts_latest";
 
@@ -28,10 +32,42 @@ function formatNumber(num: number | string | undefined): string {
   return n.toLocaleString();
 }
 
+function parseSubscriberCount(text: string | undefined): number {
+  if (!text) return 0;
+  const cleaned = text.replace(/[,\s]/g, "").toLowerCase();
+  const match = cleaned.match(/([\d.]+)([kmb]?)/);
+  if (!match) return parseInt(cleaned, 10) || 0;
+  const num = parseFloat(match[1]);
+  const unit = match[2];
+  if (unit === "k") return Math.round(num * 1000);
+  if (unit === "m") return Math.round(num * 1000000);
+  if (unit === "b") return Math.round(num * 1000000000);
+  return Math.round(num);
+}
+
 export default function YouTube() {
-  const [channelId, setChannelId] = useState(DEFAULT_CHANNEL_ID);
-  const [inputId, setInputId] = useState(DEFAULT_CHANNEL_ID);
+  const [channelId, setChannelId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(STORAGE_KEY) || DEFAULT_CHANNEL_ID;
+    }
+    return DEFAULT_CHANNEL_ID;
+  });
+  const [inputId, setInputId] = useState(channelId);
   const [filter, setFilter] = useState<FilterType>("videos_latest");
+  const [showHelp, setShowHelp] = useState(false);
+
+  // Track subscriber count for "today's new followers"
+  const [prevSubCount, setPrevSubCount] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(`patric_yt_sub_${channelId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const today = new Date().toDateString();
+        if (parsed.date === today) return parsed.count;
+      }
+    }
+    return null;
+  });
 
   const channelQuery = trpc.youtube.channelDetails.useQuery(
     { channelId },
@@ -43,14 +79,53 @@ export default function YouTube() {
     { enabled: !!channelId, retry: 1 }
   );
 
+  const channel = channelQuery.data as any;
+  const videos = videosQuery.data as any;
+
+  // Store subscriber count for daily tracking
+  useEffect(() => {
+    if (channel) {
+      const currentCount = parseSubscriberCount(
+        channel.subscriberCountText || String(channel.subscriberCount || 0)
+      );
+      const storageKey = `patric_yt_sub_${channelId}`;
+      const today = new Date().toDateString();
+      const stored = localStorage.getItem(storageKey);
+
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.date !== today) {
+          // New day - save yesterday's count as baseline
+          setPrevSubCount(parsed.count);
+          localStorage.setItem(storageKey, JSON.stringify({ date: today, count: currentCount, baseline: parsed.count }));
+        } else if (!parsed.baseline && parsed.count) {
+          setPrevSubCount(parsed.count);
+        } else {
+          setPrevSubCount(parsed.baseline || parsed.count);
+        }
+      } else {
+        // First time - save current as baseline
+        localStorage.setItem(storageKey, JSON.stringify({ date: today, count: currentCount, baseline: currentCount }));
+        setPrevSubCount(currentCount);
+      }
+    }
+  }, [channel, channelId]);
+
   const handleSearch = () => {
     if (inputId.trim()) {
-      setChannelId(inputId.trim());
+      const id = inputId.trim();
+      setChannelId(id);
+      localStorage.setItem(STORAGE_KEY, id);
+      toast.success("頻道 ID 已儲存");
     }
   };
 
-  const channel = channelQuery.data as any;
-  const videos = videosQuery.data as any;
+  const currentSubCount = channel
+    ? parseSubscriberCount(channel.subscriberCountText || String(channel.subscriberCount || 0))
+    : 0;
+  const todayNewFollowers = prevSubCount !== null && currentSubCount > 0
+    ? currentSubCount - prevSubCount
+    : null;
 
   const filterOptions: { value: FilterType; label: string; icon: React.ReactNode }[] = [
     { value: "videos_latest", label: "影片", icon: <Video className="h-3.5 w-3.5" /> },
@@ -61,31 +136,56 @@ export default function YouTube() {
   return (
     <div className="space-y-6">
       {/* Channel ID Input */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
-          <Input
-            value={inputId}
-            onChange={(e) => setInputId(e.target.value)}
-            placeholder="輸入 YouTube 頻道 ID"
-            className="bg-zinc-900/50 border-zinc-800 font-mono text-sm"
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          />
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <Input
+              value={inputId}
+              onChange={(e) => setInputId(e.target.value)}
+              placeholder="輸入 YouTube 頻道 ID（以 UC 開頭）"
+              className="bg-zinc-900/50 border-zinc-800 font-mono text-sm"
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+          <Button onClick={handleSearch} variant="outline" className="shrink-0">
+            <Search className="h-4 w-4 mr-2" />
+            查詢並儲存
+          </Button>
+          <Button
+            onClick={() => {
+              channelQuery.refetch();
+              videosQuery.refetch();
+            }}
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={() => setShowHelp(!showHelp)}
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-zinc-500"
+          >
+            <Info className="h-4 w-4" />
+          </Button>
         </div>
-        <Button onClick={handleSearch} variant="outline" className="shrink-0">
-          <Search className="h-4 w-4 mr-2" />
-          查詢
-        </Button>
-        <Button
-          onClick={() => {
-            channelQuery.refetch();
-            videosQuery.refetch();
-          }}
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+
+        {showHelp && (
+          <Card className="border-zinc-800 bg-zinc-900/50">
+            <CardContent className="p-4 text-xs text-zinc-400 space-y-2">
+              <p className="font-medium text-zinc-300">如何找到你的 YouTube 頻道 ID：</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>打開你的 YouTube 頻道頁面</li>
+                <li>點擊右上角頭像 → 「你的頻道」</li>
+                <li>URL 中 <code className="text-emerald-400 bg-zinc-800 px-1 rounded">youtube.com/channel/UCxxxxxxx</code> 的 UC 開頭部分就是頻道 ID</li>
+                <li>或到 YouTube Studio → 設定 → 頻道 → 基本資訊 → 頻道 ID</li>
+              </ol>
+              <p className="text-zinc-500">輸入後按「查詢並儲存」，下次進來會自動載入你的頻道。</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Channel Stats */}
@@ -142,13 +242,28 @@ export default function YouTube() {
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-3 mt-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
                 <div className="bg-zinc-800/40 rounded-xl p-3 text-center">
                   <Users className="h-4 w-4 text-zinc-500 mx-auto mb-1" />
                   <p className="text-lg font-bold font-mono text-white">
                     {formatNumber(channel.subscriberCountText || channel.subscriberCount)}
                   </p>
                   <p className="text-[10px] text-zinc-500">訂閱者</p>
+                </div>
+                <div className="bg-zinc-800/40 rounded-xl p-3 text-center">
+                  <TrendingUp className="h-4 w-4 text-zinc-500 mx-auto mb-1" />
+                  <p className={`text-lg font-bold font-mono ${
+                    todayNewFollowers !== null && todayNewFollowers > 0
+                      ? "text-emerald-400"
+                      : todayNewFollowers !== null && todayNewFollowers < 0
+                      ? "text-red-400"
+                      : "text-white"
+                  }`}>
+                    {todayNewFollowers !== null
+                      ? (todayNewFollowers >= 0 ? "+" : "") + todayNewFollowers.toLocaleString()
+                      : "--"}
+                  </p>
+                  <p className="text-[10px] text-zinc-500">今日新增</p>
                 </div>
                 <div className="bg-zinc-800/40 rounded-xl p-3 text-center">
                   <Eye className="h-4 w-4 text-zinc-500 mx-auto mb-1" />

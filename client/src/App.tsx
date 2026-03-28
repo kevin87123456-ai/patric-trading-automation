@@ -1,4 +1,4 @@
-import { Route, Switch } from "wouter";
+import { Route, Switch, Redirect } from "wouter";
 import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import HistoryPage from "./pages/History";
@@ -6,12 +6,13 @@ import YouTube from "./pages/YouTube";
 import PublicArchive from "./pages/PublicArchive";
 import PublicAnalysis from "./pages/PublicAnalysis";
 import { Toaster } from "./components/ui/sonner";
+import { trpc } from "@/lib/trpc";
 
 function PrivateApp() {
   return (
     <DashboardLayout>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/dashboard" component={Home} />
         <Route path="/history" component={HistoryPage} />
         <Route path="/youtube" component={YouTube} />
         <Route>
@@ -25,15 +26,32 @@ function PrivateApp() {
 }
 
 function App() {
+  // Check if user is authenticated for routing decisions
+  const meQuery = trpc.auth.me.useQuery(undefined, { retry: false });
+  const isAuthenticated = !!meQuery.data;
+
   return (
     <>
       <Toaster position="top-right" richColors />
       <Switch>
-        {/* Public routes - no auth required */}
+        {/* Public routes - always accessible */}
         <Route path="/archive" component={PublicArchive} />
         <Route path="/analysis/:slug" component={PublicAnalysis} />
+
+        {/* Root: if authenticated go to dashboard, otherwise show archive */}
+        <Route path="/">
+          {isAuthenticated ? <Redirect to="/dashboard" /> : <Redirect to="/archive" />}
+        </Route>
+
         {/* Private routes - wrapped in DashboardLayout with auth */}
-        <Route component={PrivateApp} />
+        <Route path="/dashboard" component={PrivateApp} />
+        <Route path="/history" component={PrivateApp} />
+        <Route path="/youtube" component={PrivateApp} />
+
+        {/* Catch-all: redirect to archive for visitors */}
+        <Route>
+          {isAuthenticated ? <PrivateApp /> : <Redirect to="/archive" />}
+        </Route>
       </Switch>
     </>
   );

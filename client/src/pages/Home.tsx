@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import ViewpointCard from "@/components/ViewpointCard";
 import {
@@ -18,6 +19,9 @@ import {
   ImageIcon,
   Sparkles,
   Eye,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 
@@ -52,6 +56,12 @@ export default function Home() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("analysis");
 
+  // Edit states
+  const [editingAnalysis, setEditingAnalysis] = useState(false);
+  const [editAnalysisData, setEditAnalysisData] = useState<Partial<AnalysisResult>>({});
+  const [editingViewpoint, setEditingViewpoint] = useState(false);
+  const [editViewpointData, setEditViewpointData] = useState<Partial<ViewpointData>>({});
+
   const uploadMutation = trpc.analysis.upload.useMutation();
   const analyzeMutation = trpc.analysis.analyze.useMutation();
   const viewpointMutation = trpc.analysis.generateViewpoint.useMutation();
@@ -59,6 +69,7 @@ export default function Home() {
   const selectMutation = trpc.analysis.selectMaterial.useMutation();
   const syncMutation = trpc.analysis.syncToSheets.useMutation();
   const publishMutation = trpc.analysis.publish.useMutation();
+  const editAnalysisMutation = trpc.analysis.editAnalysis.useMutation();
 
   const publishStatusQuery = trpc.analysis.getPublishStatus.useQuery(
     { analysisId: currentAnalysisId! },
@@ -120,7 +131,6 @@ export default function Home() {
     if (!currentAnalysisId) return;
     try {
       const data = await viewpointMutation.mutateAsync({ analysisId: currentAnalysisId });
-      // Validate viewpoint data format
       const safeData: ViewpointData = {
         operationView: typeof data?.operationView === "string" ? data.operationView : "暫無操作建議",
         priceAlerts: Array.isArray(data?.priceAlerts)
@@ -157,6 +167,7 @@ export default function Home() {
         operationView: viewpointData.operationView,
         priceAlerts: JSON.stringify(viewpointData.priceAlerts),
         coverTitle: analysisResult?.coin || "",
+        summary: viewpointData.summary || "",
       });
       publishStatusQuery.refetch();
       const url = `${window.location.origin}/analysis/${result.slug}`;
@@ -165,6 +176,73 @@ export default function Home() {
     } catch (error: any) {
       toast.error("發佈失敗", { description: error.message });
     }
+  };
+
+  // Edit analysis handlers
+  const startEditAnalysis = () => {
+    if (!analysisResult) return;
+    setEditAnalysisData({
+      corgiBoxHigh: analysisResult.corgiBoxHigh,
+      corgiBoxLow: analysisResult.corgiBoxLow,
+      corgiBox05: analysisResult.corgiBox05,
+      currentPrice: analysisResult.currentPrice,
+      direction: analysisResult.direction,
+      keyLevels: [...analysisResult.keyLevels],
+    });
+    setEditingAnalysis(true);
+  };
+
+  const saveEditAnalysis = async () => {
+    if (!currentAnalysisId || !analysisResult) return;
+    try {
+      await editAnalysisMutation.mutateAsync({
+        analysisId: currentAnalysisId,
+        ...editAnalysisData,
+        direction: editAnalysisData.direction as "bullish" | "bearish" | "neutral" | undefined,
+        keyLevels: editAnalysisData.keyLevels as any,
+      });
+      setAnalysisResult({
+        ...analysisResult,
+        ...editAnalysisData,
+        keyLevels: editAnalysisData.keyLevels || analysisResult.keyLevels,
+      } as AnalysisResult);
+      setEditingAnalysis(false);
+      toast.success("分析已更新");
+    } catch (error: any) {
+      toast.error("更新失敗", { description: error.message });
+    }
+  };
+
+  // Edit viewpoint handlers
+  const startEditViewpoint = () => {
+    if (!viewpointData || !analysisResult) return;
+    setEditViewpointData({
+      operationView: viewpointData.operationView,
+      priceAlerts: [...viewpointData.priceAlerts],
+      summary: viewpointData.summary,
+    });
+    setEditAnalysisData({
+      direction: analysisResult.direction,
+    });
+    setEditingViewpoint(true);
+  };
+
+  const saveEditViewpoint = () => {
+    if (!viewpointData || !analysisResult) return;
+    setViewpointData({
+      ...viewpointData,
+      operationView: editViewpointData.operationView || viewpointData.operationView,
+      priceAlerts: editViewpointData.priceAlerts || viewpointData.priceAlerts,
+      summary: editViewpointData.summary || viewpointData.summary,
+    });
+    if (editAnalysisData.direction) {
+      setAnalysisResult({
+        ...analysisResult,
+        direction: editAnalysisData.direction,
+      });
+    }
+    setEditingViewpoint(false);
+    toast.success("觀點卡片已更新");
   };
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -177,6 +255,12 @@ export default function Home() {
 
   const coins = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX"];
   const timeframes = ["1M", "5M", "15M", "1H", "4H", "1D", "1W"];
+
+  const directionOptions = [
+    { value: "bullish", label: "看多", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+    { value: "bearish", label: "看空", color: "bg-red-500/20 text-red-400 border-red-500/30" },
+    { value: "neutral", label: "觀望", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
+  ];
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -230,35 +314,17 @@ export default function Home() {
               <div>
                 <label className="text-xs text-zinc-500 mb-1.5 block">週期</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {timeframes.slice(3, 6).map((t) => (
+                  {timeframes.map((t) => (
                     <Button
                       key={t}
                       variant={timeframe === t ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeframe(t)}
-                      className="text-xs px-2.5 h-7"
+                      className="text-xs px-2 h-7"
                     >
                       {t}
                     </Button>
                   ))}
-                  {!timeframes.slice(3, 6).includes(timeframe) ? (
-                    <Input
-                      value={timeframe}
-                      onChange={(e) => setTimeframe(e.target.value.toUpperCase())}
-                      className="h-7 w-14 text-xs bg-zinc-900/50 border-zinc-800 font-mono"
-                      placeholder="其他"
-                      autoFocus
-                    />
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setTimeframe("")}
-                      className="text-xs px-2.5 h-7 text-zinc-500"
-                    >
-                      其他
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
@@ -393,48 +459,111 @@ export default function Home() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Analysis Tab */}
+          {/* ===== Analysis Tab ===== */}
           <TabsContent value="analysis" className="mt-4">
             {analysisResult && (
               <Card className="border-zinc-800 bg-zinc-900/30">
                 <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <h3 className="text-lg font-bold text-white">
-                      {analysisResult.coin} {analysisResult.timeframe}
-                    </h3>
-                    <Badge
-                      className={
-                        analysisResult.direction === "bullish"
-                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                          : analysisResult.direction === "bearish"
-                          ? "bg-red-500/20 text-red-400 border-red-500/30"
-                          : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-                      }
-                    >
-                      {analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs border-zinc-700">
-                      {analysisResult.confidence === "high" ? "高信心" : analysisResult.confidence === "medium" ? "中信心" : "低信心"}
-                    </Badge>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-bold text-white">
+                        {analysisResult.coin} {analysisResult.timeframe}
+                      </h3>
+                      {editingAnalysis ? (
+                        <div className="flex gap-1.5">
+                          {directionOptions.map((d) => (
+                            <button
+                              key={d.value}
+                              onClick={() => setEditAnalysisData({ ...editAnalysisData, direction: d.value })}
+                              className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                                editAnalysisData.direction === d.value
+                                  ? d.color
+                                  : "border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          <Badge
+                            className={
+                              analysisResult.direction === "bullish"
+                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                : analysisResult.direction === "bearish"
+                                ? "bg-red-500/20 text-red-400 border-red-500/30"
+                                : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                            }
+                          >
+                            {analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs border-zinc-700">
+                            {analysisResult.confidence === "high" ? "高信心" : analysisResult.confidence === "medium" ? "中信心" : "低信心"}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      {editingAnalysis ? (
+                        <>
+                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingAnalysis(false)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 px-3 text-xs"
+                            onClick={saveEditAnalysis}
+                            disabled={editAnalysisMutation.isPending}
+                          >
+                            {editAnalysisMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                            儲存
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" variant="ghost" className="h-8 px-2.5 text-xs text-zinc-400" onClick={startEditAnalysis}>
+                          <Pencil className="h-3.5 w-3.5 mr-1" />
+                          編輯
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                    <div className="bg-zinc-800/40 rounded-lg p-3">
-                      <p className="text-[10px] text-zinc-500 uppercase">柯基框上緣</p>
-                      <p className="font-mono font-bold text-sm text-white mt-1">${analysisResult.corgiBoxHigh.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-zinc-800/40 rounded-lg p-3">
-                      <p className="text-[10px] text-zinc-500 uppercase">柯基框下緣</p>
-                      <p className="font-mono font-bold text-sm text-white mt-1">${analysisResult.corgiBoxLow.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-emerald-950/30 rounded-lg p-3 border border-emerald-800/30">
-                      <p className="text-[10px] text-emerald-400 uppercase">0.5 關鍵位</p>
-                      <p className="font-mono font-bold text-sm text-emerald-300 mt-1">${analysisResult.corgiBox05.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-zinc-800/40 rounded-lg p-3">
-                      <p className="text-[10px] text-zinc-500 uppercase">當前價格</p>
-                      <p className="font-mono font-bold text-sm text-white mt-1">${analysisResult.currentPrice.toLocaleString()}</p>
-                    </div>
+                    {[
+                      { label: "柯基框上緣", key: "corgiBoxHigh" as const, accent: false },
+                      { label: "柯基框下緣", key: "corgiBoxLow" as const, accent: false },
+                      { label: "0.5 關鍵位", key: "corgiBox05" as const, accent: true },
+                      { label: "當前價格", key: "currentPrice" as const, accent: false },
+                    ].map((item) => (
+                      <div
+                        key={item.key}
+                        className={`rounded-lg p-3 ${
+                          item.accent ? "bg-emerald-950/30 border border-emerald-800/30" : "bg-zinc-800/40"
+                        }`}
+                      >
+                        <p className={`text-[10px] uppercase ${item.accent ? "text-emerald-400" : "text-zinc-500"}`}>
+                          {item.label}
+                        </p>
+                        {editingAnalysis ? (
+                          <Input
+                            type="number"
+                            value={editAnalysisData[item.key] ?? analysisResult[item.key]}
+                            onChange={(e) =>
+                              setEditAnalysisData({
+                                ...editAnalysisData,
+                                [item.key]: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            className="h-7 mt-1 text-sm font-mono font-bold bg-zinc-900/50 border-zinc-700 text-white"
+                          />
+                        ) : (
+                          <p className={`font-mono font-bold text-sm mt-1 ${item.accent ? "text-emerald-300" : "text-white"}`}>
+                            ${(analysisResult[item.key] as number).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
                   <p className="text-sm text-zinc-300 leading-relaxed">{analysisResult.analysis}</p>
@@ -442,13 +571,39 @@ export default function Home() {
                   {analysisResult.keyLevels?.length > 0 && (
                     <div className="mt-4 space-y-2">
                       <p className="text-xs text-zinc-500 uppercase tracking-wider">關鍵位階</p>
-                      {analysisResult.keyLevels.map((kl, i) => (
-                        <div key={i} className="flex items-center justify-between bg-zinc-800/30 rounded-lg px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm text-white">${kl.price.toLocaleString()}</span>
-                            <Badge variant="outline" className="text-[10px] border-zinc-700">{kl.type}</Badge>
-                          </div>
-                          <span className="text-xs text-zinc-400">{kl.description}</span>
+                      {(editingAnalysis ? editAnalysisData.keyLevels || [] : analysisResult.keyLevels).map((kl, i) => (
+                        <div key={i} className="flex items-center justify-between bg-zinc-800/30 rounded-lg px-3 py-2 gap-2">
+                          {editingAnalysis ? (
+                            <>
+                              <Input
+                                type="number"
+                                value={kl.price}
+                                onChange={(e) => {
+                                  const newLevels = [...(editAnalysisData.keyLevels || [])];
+                                  newLevels[i] = { ...newLevels[i], price: parseFloat(e.target.value) || 0 };
+                                  setEditAnalysisData({ ...editAnalysisData, keyLevels: newLevels });
+                                }}
+                                className="h-7 w-28 text-xs font-mono bg-zinc-900/50 border-zinc-700"
+                              />
+                              <Input
+                                value={kl.description}
+                                onChange={(e) => {
+                                  const newLevels = [...(editAnalysisData.keyLevels || [])];
+                                  newLevels[i] = { ...newLevels[i], description: e.target.value };
+                                  setEditAnalysisData({ ...editAnalysisData, keyLevels: newLevels });
+                                }}
+                                className="h-7 flex-1 text-xs bg-zinc-900/50 border-zinc-700"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm text-white">${kl.price.toLocaleString()}</span>
+                                <Badge variant="outline" className="text-[10px] border-zinc-700">{kl.type}</Badge>
+                              </div>
+                              <span className="text-xs text-zinc-400">{kl.description}</span>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -458,45 +613,155 @@ export default function Home() {
             )}
           </TabsContent>
 
-          {/* Viewpoint Card Tab */}
+          {/* ===== Viewpoint Card Tab ===== */}
           <TabsContent value="viewpoint" className="mt-4">
             {viewpointData && analysisResult && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-zinc-500">截圖此卡片即可分享給群友</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      copyToClipboard(
-                        `${analysisResult.coin} ${analysisResult.timeframe} 觀點\n方向：${analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}\n${viewpointData.operationView}\n\n${viewpointData.summary}`,
-                        "viewpoint-text"
-                      )
-                    }
-                  >
-                    {copiedField === "viewpoint-text" ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                    複製文字版
-                  </Button>
+                  <div className="flex gap-2">
+                    {editingViewpoint ? (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingViewpoint(false)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" className="h-7 px-3 text-xs" onClick={saveEditViewpoint}>
+                          <Save className="h-3 w-3 mr-1" />
+                          儲存
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-7 px-2.5 text-xs text-zinc-400" onClick={startEditViewpoint}>
+                          <Pencil className="h-3 w-3 mr-1" />
+                          編輯
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          onClick={() =>
+                            copyToClipboard(
+                              `${analysisResult.coin} ${analysisResult.timeframe} 觀點\n方向：${analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}\n${viewpointData.operationView}\n\n${viewpointData.summary}`,
+                              "viewpoint-text"
+                            )
+                          }
+                        >
+                          {copiedField === "viewpoint-text" ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                          複製文字版
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <ViewpointCard
-                  coin={analysisResult.coin}
-                  timeframe={analysisResult.timeframe}
-                  direction={analysisResult.direction}
-                  confidence={analysisResult.confidence}
-                  corgiBoxHigh={analysisResult.corgiBoxHigh}
-                  corgiBoxLow={analysisResult.corgiBoxLow}
-                  corgiBox05={analysisResult.corgiBox05}
-                  currentPrice={analysisResult.currentPrice}
-                  analysisText={analysisResult.analysis}
-                  operationView={viewpointData.operationView}
-                  priceAlerts={viewpointData.priceAlerts}
-                  summary={viewpointData.summary}
-                />
+
+                {editingViewpoint ? (
+                  <Card className="border-zinc-800 bg-zinc-900/30">
+                    <CardContent className="p-5 space-y-4">
+                      {/* Direction edit */}
+                      <div>
+                        <label className="text-xs text-zinc-500 mb-2 block">方向判斷</label>
+                        <div className="flex gap-2">
+                          {directionOptions.map((d) => (
+                            <button
+                              key={d.value}
+                              onClick={() => setEditAnalysisData({ ...editAnalysisData, direction: d.value })}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                editAnalysisData.direction === d.value
+                                  ? d.color
+                                  : "border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Operation view edit */}
+                      <div>
+                        <label className="text-xs text-zinc-500 mb-2 block">操作視角</label>
+                        <Textarea
+                          value={editViewpointData.operationView || ""}
+                          onChange={(e) => setEditViewpointData({ ...editViewpointData, operationView: e.target.value })}
+                          className="bg-zinc-900/50 border-zinc-700 text-sm min-h-[100px]"
+                        />
+                      </div>
+
+                      {/* Price alerts edit */}
+                      <div>
+                        <label className="text-xs text-zinc-500 mb-2 block">關鍵價格提醒</label>
+                        <div className="space-y-2">
+                          {(editViewpointData.priceAlerts || []).map((alert, i) => (
+                            <div key={i} className="grid grid-cols-3 gap-2">
+                              <Input
+                                type="number"
+                                value={alert.price}
+                                onChange={(e) => {
+                                  const newAlerts = [...(editViewpointData.priceAlerts || [])];
+                                  newAlerts[i] = { ...newAlerts[i], price: parseFloat(e.target.value) || 0 };
+                                  setEditViewpointData({ ...editViewpointData, priceAlerts: newAlerts });
+                                }}
+                                className="h-8 text-xs font-mono bg-zinc-900/50 border-zinc-700"
+                                placeholder="價格"
+                              />
+                              <Input
+                                value={alert.label}
+                                onChange={(e) => {
+                                  const newAlerts = [...(editViewpointData.priceAlerts || [])];
+                                  newAlerts[i] = { ...newAlerts[i], label: e.target.value };
+                                  setEditViewpointData({ ...editViewpointData, priceAlerts: newAlerts });
+                                }}
+                                className="h-8 text-xs bg-zinc-900/50 border-zinc-700"
+                                placeholder="標籤"
+                              />
+                              <Input
+                                value={alert.action}
+                                onChange={(e) => {
+                                  const newAlerts = [...(editViewpointData.priceAlerts || [])];
+                                  newAlerts[i] = { ...newAlerts[i], action: e.target.value };
+                                  setEditViewpointData({ ...editViewpointData, priceAlerts: newAlerts });
+                                }}
+                                className="h-8 text-xs bg-zinc-900/50 border-zinc-700"
+                                placeholder="建議動作"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Summary edit */}
+                      <div>
+                        <label className="text-xs text-zinc-500 mb-2 block">一句話總結</label>
+                        <Input
+                          value={editViewpointData.summary || ""}
+                          onChange={(e) => setEditViewpointData({ ...editViewpointData, summary: e.target.value })}
+                          className="bg-zinc-900/50 border-zinc-700 text-sm"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <ViewpointCard
+                    coin={analysisResult.coin}
+                    timeframe={analysisResult.timeframe}
+                    direction={analysisResult.direction}
+                    confidence={analysisResult.confidence}
+                    corgiBoxHigh={analysisResult.corgiBoxHigh}
+                    corgiBoxLow={analysisResult.corgiBoxLow}
+                    corgiBox05={analysisResult.corgiBox05}
+                    currentPrice={analysisResult.currentPrice}
+                    analysisText={analysisResult.analysis}
+                    operationView={viewpointData.operationView}
+                    priceAlerts={viewpointData.priceAlerts}
+                    summary={viewpointData.summary}
+                  />
+                )}
               </div>
             )}
           </TabsContent>
 
-          {/* Materials Tab */}
+          {/* ===== Materials Tab ===== */}
           <TabsContent value="materials" className="mt-4">
             {materials && materials.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

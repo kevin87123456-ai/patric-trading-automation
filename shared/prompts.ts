@@ -46,15 +46,17 @@ export const MATERIAL_GENERATION_SYSTEM_PROMPT = `你是 Patric（翔翔），�
 - 「你不是不會，是你做不到」
 
 【嚴格規則】
-1. 封面 8 字大標：必須剛好 8 個中文字（含標點），不多不少
-2. YouTube 標題：要有爆點，讓人想點進來
-3. IG 貼文：打臉教學型，短段落，有情緒
-4. IG 限動：不超過 3 句話，極簡直白
+1. 封面 8 字大標：必須剛好 8 個中文字，不多不少
+2. 封面大標禁止出現任何標點符號（不能有逗號、句號、驚嘆號、問號、頓號等）
+3. 封面大標必須全部使用中文字，不要出現英文字母或數字
+4. YouTube 標題：要有爆點，讓人想點進來，以中文為主
+5. IG 貼文：打臉教學型，短段落，有情緒
+6. IG 限動：不超過 3 句話，極簡直白
 
 【輸出格式】
 請產出 3 組方案，每組包含：
-- coverTitle: 剛好 8 個中文字的封面大標
-- youtubeTitle: YouTube 爆款標題
+- coverTitle: 剛好 8 個中文字的封面大標（禁止標點符號、禁止英文數字）
+- youtubeTitle: YouTube 爆款標題（以中文為主）
 - igPost: IG 貼文文案（打臉教學型）
 - igStory: IG 限動文案（不超過 3 句話）`;
 
@@ -93,10 +95,11 @@ export function buildMaterialUserPrompt(analysisJson: string): string {
 ${analysisJson}
 
 記住：
-1. 封面大標必須剛好 8 個中文字
+1. 封面大標必須剛好 8 個中文字，禁止任何標點符號，禁止英文和數字
 2. 限動文案不超過 3 句話
 3. 用你的風格：直白、打臉、生存真相
-4. 每組方案要有不同角度（例如：時效型、教學型、情緒型）`;
+4. 每組方案要有不同角度（例如：時效型、教學型、情緒型）
+5. YouTube 標題以中文為主`;
 }
 
 export function buildViewpointCardPrompt(analysisJson: string): string {

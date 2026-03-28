@@ -69,6 +69,7 @@ export const publishedAnalyses = mysqlTable("published_analyses", {
   operationView: text("operationView").notNull(), // 操作視角建議
   priceAlerts: text("priceAlerts").notNull(), // 關鍵價格提醒 JSON
   coverTitle: varchar("coverTitle", { length: 30 }),
+  summary: text("summary"),
   publishedAt: timestamp("publishedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

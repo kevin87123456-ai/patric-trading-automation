@@ -49,11 +49,14 @@ const ownerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-function validateCoverTitle(title: string): string | null {
-  const cleaned = title.replace(/\s/g, "");
-  const charCount = Array.from(cleaned).length;
-  if (charCount >= 6 && charCount <= 10) return cleaned;
-  return null;
+function sanitizeCoverTitle(title: string): string {
+  // Remove all punctuation and non-Chinese characters, keep only Chinese chars
+  const cleaned = title.replace(/[^\u4e00-\u9fff]/g, "");
+  const chars = Array.from(cleaned);
+  if (chars.length >= 6 && chars.length <= 10) return cleaned;
+  // If too long, trim to 8; if too short, return as-is
+  if (chars.length > 10) return chars.slice(0, 8).join("");
+  return cleaned;
 }
 
 function validateIgStory(story: string): string {
@@ -188,6 +191,46 @@ export const appRouter = router({
         }
       }),
 
+    // Edit analysis result (key levels, direction)
+    editAnalysis: ownerProcedure
+      .input(z.object({
+        analysisId: z.number(),
+        keyLevels: z.array(z.object({
+          price: z.number(),
+          type: z.string(),
+          description: z.string(),
+        })).optional(),
+        direction: z.enum(["bullish", "bearish", "neutral"]).optional(),
+        corgiBoxHigh: z.number().optional(),
+        corgiBoxLow: z.number().optional(),
+        corgiBox05: z.number().optional(),
+        currentPrice: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const analysis = await getAnalysisById(input.analysisId);
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
+        if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        let parsed: any = {};
+        try { parsed = JSON.parse(analysis.analysisResult || "{}"); } catch {}
+
+        if (input.direction !== undefined) parsed.direction = input.direction;
+        if (input.corgiBoxHigh !== undefined) parsed.corgiBoxHigh = input.corgiBoxHigh;
+        if (input.corgiBoxLow !== undefined) parsed.corgiBoxLow = input.corgiBoxLow;
+        if (input.corgiBox05 !== undefined) parsed.corgiBox05 = input.corgiBox05;
+        if (input.currentPrice !== undefined) parsed.currentPrice = input.currentPrice;
+        if (input.keyLevels !== undefined) parsed.keyLevels = input.keyLevels;
+
+        const newKeyLevelsJson = JSON.stringify(parsed.keyLevels || []);
+
+        const updated = await updateAnalysis(analysis.id, {
+          analysisResult: JSON.stringify(parsed),
+          keyLevels: newKeyLevelsJson,
+        });
+
+        return updated;
+      }),
+
     // Generate viewpoint card content (for screenshot sharing)
     generateViewpoint: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
@@ -244,6 +287,7 @@ export const appRouter = router({
         operationView: z.string().min(1),
         priceAlerts: z.string().min(1), // JSON string
         coverTitle: z.string().optional(),
+        summary: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const analysis = await getAnalysisById(input.analysisId);
@@ -277,6 +321,7 @@ export const appRouter = router({
           operationView: input.operationView,
           priceAlerts: input.priceAlerts,
           coverTitle: input.coverTitle || parsed.coin || "",
+          summary: input.summary || "",
         });
 
         return published;
@@ -287,7 +332,22 @@ export const appRouter = router({
       .input(z.object({ analysisId: z.number() }))
       .query(async ({ input }) => {
         const published = await getPublishedByAnalysisId(input.analysisId);
-        return { published: !!published, slug: published?.slug || null };
+        if (!published) return { published: false, slug: null };
+        return {
+          published: true,
+          slug: published.slug,
+          direction: published.direction,
+          confidence: published.confidence,
+          corgiBoxHigh: published.corgiBoxHigh,
+          corgiBoxLow: published.corgiBoxLow,
+          corgiBox05: published.corgiBox05,
+          currentPrice: published.currentPrice,
+          analysisText: published.analysisText,
+          operationView: published.operationView,
+          priceAlerts: published.priceAlerts,
+          summary: published.summary,
+          publishedAt: published.publishedAt,
+        };
       }),
 
     // Generate materials from analysis
@@ -339,7 +399,7 @@ export const appRouter = router({
         const options = parsedContent.options || [];
 
         const materialsData = options.slice(0, 3).map((opt: any) => {
-          const validatedTitle = validateCoverTitle(opt.coverTitle) || opt.coverTitle.substring(0, 8);
+          const validatedTitle = sanitizeCoverTitle(opt.coverTitle);
           const validatedStory = validateIgStory(opt.igStory || "");
           return {
             analysisId: analysis.id,
