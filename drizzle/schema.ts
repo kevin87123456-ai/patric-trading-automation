@@ -70,9 +70,22 @@ export const publishedAnalyses = mysqlTable("published_analyses", {
   priceAlerts: text("priceAlerts").notNull(), // 關鍵價格提醒 JSON
   coverTitle: varchar("coverTitle", { length: 30 }),
   summary: text("summary"),
+  profitImage: text("profitImage"),
+  lossImage: text("lossImage"),
   publishedAt: timestamp("publishedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type PublishedAnalysis = typeof publishedAnalyses.$inferSelect;
 export type InsertPublishedAnalysis = typeof publishedAnalyses.$inferInsert;
+
+// 網站設定（owner 可編輯的個人介紹等）
+export const siteSettings = mysqlTable("site_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  settingKey: varchar("settingKey", { length: 100 }).notNull().unique(),
+  settingValue: text("settingValue").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type InsertSiteSetting = typeof siteSettings.$inferInsert;

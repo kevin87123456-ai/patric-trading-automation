@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, analyses, generatedMaterials, publishedAnalyses, type InsertAnalysis, type InsertGeneratedMaterial, type InsertPublishedAnalysis } from "../drizzle/schema";
+import { InsertUser, users, analyses, generatedMaterials, publishedAnalyses, siteSettings, type InsertAnalysis, type InsertGeneratedMaterial, type InsertPublishedAnalysis } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -192,4 +192,40 @@ export async function listPublishedAnalyses(limit = 50) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.select().from(publishedAnalyses).orderBy(desc(publishedAnalyses.publishedAt)).limit(limit);
+}
+
+export async function updatePublishedAnalysis(id: number, data: Partial<InsertPublishedAnalysis>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(publishedAnalyses).set(data).where(eq(publishedAnalyses.id, id));
+  const rows = await db.select().from(publishedAnalyses).where(eq(publishedAnalyses.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+// ===== Site Settings CRUD =====
+
+export async function getSetting(key: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select().from(siteSettings).where(eq(siteSettings.settingKey, key)).limit(1);
+  return rows[0]?.settingValue ?? null;
+}
+
+export async function getAllSettings() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select().from(siteSettings);
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.settingKey] = row.settingValue;
+  }
+  return result;
+}
+
+export async function upsertSetting(key: string, value: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(siteSettings).values({ settingKey: key, settingValue: value })
+    .onDuplicateKeyUpdate({ set: { settingValue: value } });
+  return { key, value };
 }

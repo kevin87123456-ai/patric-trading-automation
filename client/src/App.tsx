@@ -5,6 +5,7 @@ import HistoryPage from "./pages/History";
 import YouTube from "./pages/YouTube";
 import PublicArchive from "./pages/PublicArchive";
 import PublicAnalysis from "./pages/PublicAnalysis";
+import AboutPage from "./pages/AboutPage";
 import { Toaster } from "./components/ui/sonner";
 import { trpc } from "@/lib/trpc";
 
@@ -37,6 +38,7 @@ function App() {
         {/* Public routes - always accessible */}
         <Route path="/archive" component={PublicArchive} />
         <Route path="/analysis/:slug" component={PublicAnalysis} />
+        <Route path="/about" component={AboutPage} />
 
         {/* Root: if authenticated go to dashboard, otherwise show archive */}
         <Route path="/">

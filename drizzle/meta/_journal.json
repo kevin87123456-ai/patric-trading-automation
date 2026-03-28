@@ -29,6 +29,20 @@
       "when": 1774720754639,
       "tag": "0003_panoramic_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1774723672271,
+      "tag": "0004_silly_sway",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1774724221236,
+      "tag": "0005_fantastic_charles_xavier",
+      "breakpoints": true
     }
   ]
 }

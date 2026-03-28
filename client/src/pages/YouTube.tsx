@@ -20,7 +20,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 const STORAGE_KEY = "patric_yt_channel_id";
-const DEFAULT_CHANNEL_ID = "UCGnBVKPFRpRK_ky7JkDcBTA";
+const DEFAULT_CHANNEL_ID = "UCD3t6sdtaGMcP1i9Hf9XrOg";
 
 type FilterType = "videos_latest" | "streams_latest" | "shorts_latest";
 

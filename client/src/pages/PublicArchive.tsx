@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Loader2,
@@ -9,6 +10,7 @@ import {
   Zap,
   Calendar,
   ChevronRight,
+  User,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -37,10 +39,16 @@ export default function PublicArchive() {
               <Zap className="h-5 w-5 text-emerald-500" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-white tracking-tight">Patric 每日盤面</h1>
-              <p className="text-[11px] text-zinc-500">加密貨幣柯基區間分析紀錄</p>
+              <h1 className="text-base font-bold text-white tracking-tight">每日觀點分析</h1>
+              <p className="text-[11px] text-zinc-500">Patric｜柯基交易室</p>
             </div>
           </div>
+          <Link href="/about">
+            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white text-xs gap-1.5">
+              <User className="h-3.5 w-3.5" />
+              認識 Patric
+            </Button>
+          </Link>
         </div>
       </header>
 

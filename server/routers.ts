@@ -23,6 +23,10 @@ import {
   getPublishedBySlug,
   getPublishedByAnalysisId,
   listPublishedAnalyses,
+  updatePublishedAnalysis,
+  getAllSettings,
+  getSetting,
+  upsertSetting,
 } from "./db";
 import {
   CHART_ANALYSIS_SYSTEM_PROMPT,
@@ -50,11 +54,9 @@ const ownerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
 });
 
 function sanitizeCoverTitle(title: string): string {
-  // Remove all punctuation and non-Chinese characters, keep only Chinese chars
   const cleaned = title.replace(/[^\u4e00-\u9fff]/g, "");
   const chars = Array.from(cleaned);
   if (chars.length >= 6 && chars.length <= 10) return cleaned;
-  // If too long, trim to 8; if too short, return as-is
   if (chars.length > 10) return chars.slice(0, 8).join("");
   return cleaned;
 }
@@ -85,7 +87,6 @@ export const appRouter = router({
   }),
 
   analysis: router({
-    // Upload image and create analysis record
     upload: ownerProcedure
       .input(z.object({
         imageBase64: z.string(),
@@ -110,7 +111,6 @@ export const appRouter = router({
         return analysis;
       }),
 
-    // Run LLM analysis on uploaded chart
     analyze: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
       .mutation(async ({ ctx, input }) => {
@@ -191,7 +191,6 @@ export const appRouter = router({
         }
       }),
 
-    // Edit analysis result (key levels, direction)
     editAnalysis: ownerProcedure
       .input(z.object({
         analysisId: z.number(),
@@ -231,7 +230,6 @@ export const appRouter = router({
         return updated;
       }),
 
-    // Generate viewpoint card content (for screenshot sharing)
     generateViewpoint: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
       .mutation(async ({ ctx, input }) => {
@@ -280,12 +278,11 @@ export const appRouter = router({
         return JSON.parse(typeof content === "string" ? content : "{}");
       }),
 
-    // Publish analysis to public page
     publish: ownerProcedure
       .input(z.object({
         analysisId: z.number(),
         operationView: z.string().min(1),
-        priceAlerts: z.string().min(1), // JSON string
+        priceAlerts: z.string().min(1),
         coverTitle: z.string().optional(),
         summary: z.string().optional(),
       }))
@@ -295,7 +292,6 @@ export const appRouter = router({
         if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
         if (!analysis.analysisResult) throw new TRPCError({ code: "BAD_REQUEST", message: "分析尚未完成" });
 
-        // Check if already published
         const existing = await getPublishedByAnalysisId(analysis.id);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "此分析已發佈" });
 
@@ -327,7 +323,68 @@ export const appRouter = router({
         return published;
       }),
 
-    // Check if analysis is published
+    // Edit published analysis (owner only - add profit/loss images, edit text)
+    editPublished: ownerProcedure
+      .input(z.object({
+        publishedId: z.number(),
+        operationView: z.string().optional(),
+        analysisText: z.string().optional(),
+        summary: z.string().optional(),
+        profitImageBase64: z.string().optional(),
+        profitImageMime: z.string().optional(),
+        lossImageBase64: z.string().optional(),
+        lossImageMime: z.string().optional(),
+        direction: z.enum(["bullish", "bearish", "neutral"]).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const updateData: Record<string, any> = {};
+
+        if (input.operationView !== undefined) updateData.operationView = input.operationView;
+        if (input.analysisText !== undefined) updateData.analysisText = input.analysisText;
+        if (input.summary !== undefined) updateData.summary = input.summary;
+        if (input.direction !== undefined) updateData.direction = input.direction;
+
+        // Upload profit image to S3 and store URL
+        if (input.profitImageBase64) {
+          const buffer = Buffer.from(input.profitImageBase64, "base64");
+          const ext = input.profitImageMime?.includes("png") ? "png" : "jpg";
+          const fileKey = `published/${input.publishedId}/profit-${nanoid(6)}.${ext}`;
+          const { url } = await storagePut(fileKey, buffer, input.profitImageMime || "image/png");
+          updateData.profitImage = url;
+        }
+
+        // Upload loss image to S3 and store URL
+        if (input.lossImageBase64) {
+          const buffer = Buffer.from(input.lossImageBase64, "base64");
+          const ext = input.lossImageMime?.includes("png") ? "png" : "jpg";
+          const fileKey = `published/${input.publishedId}/loss-${nanoid(6)}.${ext}`;
+          const { url } = await storagePut(fileKey, buffer, input.lossImageMime || "image/png");
+          updateData.lossImage = url;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "沒有要更新的內容" });
+        }
+
+        return await updatePublishedAnalysis(input.publishedId, updateData);
+      }),
+
+    // Upload image for published analysis (profit/loss screenshots)
+    uploadPublishedImage: ownerProcedure
+      .input(z.object({
+        publishedId: z.number(),
+        imageBase64: z.string(),
+        mimeType: z.string().default("image/png"),
+        imageType: z.enum(["profit", "loss"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const buffer = Buffer.from(input.imageBase64, "base64");
+        const ext = input.mimeType.includes("png") ? "png" : "jpg";
+        const fileKey = `published/${input.publishedId}/${input.imageType}-${nanoid(6)}.${ext}`;
+        const { url } = await storagePut(fileKey, buffer, input.mimeType);
+        return { url, imageType: input.imageType };
+      }),
+
     getPublishStatus: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
       .query(async ({ input }) => {
@@ -336,6 +393,7 @@ export const appRouter = router({
         return {
           published: true,
           slug: published.slug,
+          id: published.id,
           direction: published.direction,
           confidence: published.confidence,
           corgiBoxHigh: published.corgiBoxHigh,
@@ -346,11 +404,12 @@ export const appRouter = router({
           operationView: published.operationView,
           priceAlerts: published.priceAlerts,
           summary: published.summary,
+          profitImage: (published as any).profitImage || null,
+          lossImage: (published as any).lossImage || null,
           publishedAt: published.publishedAt,
         };
       }),
 
-    // Generate materials from analysis
     generateMaterials: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
       .mutation(async ({ ctx, input }) => {
@@ -482,31 +541,86 @@ export const appRouter = router({
 
   // ===== Public routes (no auth required) =====
   public: router({
-    // Get single published analysis by slug
     getAnalysis: publicProcedure
       .input(z.object({ slug: z.string() }))
       .query(async ({ input }) => {
         const published = await getPublishedBySlug(input.slug);
         if (!published) throw new TRPCError({ code: "NOT_FOUND", message: "找不到此盤面分析" });
-        return published;
+        return {
+          ...published,
+          profitImage: (published as any).profitImage || null,
+          lossImage: (published as any).lossImage || null,
+        };
       }),
 
-    // List all published analyses (public archive)
     listAnalyses: publicProcedure
       .input(z.object({ limit: z.number().min(1).max(100).default(30) }).optional())
       .query(async ({ input }) => {
         return listPublishedAnalyses(input?.limit || 30);
+      }),
+
+    // Get about page data (public)
+    getAboutData: publicProcedure.query(async () => {
+      const settings = await getAllSettings();
+      return {
+        intro: settings.about_intro || "",
+        whatIDo: settings.about_what_i_do || "",
+        philosophy: settings.about_philosophy || "",
+        youtube: settings.about_youtube || "",
+        ig: settings.about_ig || "",
+        whatsapp: settings.about_whatsapp || "",
+        freeDoc: settings.about_free_doc || "",
+        freeDocTitle: settings.about_free_doc_title || "",
+      };
+    }),
+  }),
+
+  // ===== Site Settings (owner only) =====
+  settings: router({
+    getAll: ownerProcedure.query(async () => {
+      return await getAllSettings();
+    }),
+
+    update: ownerProcedure
+      .input(z.object({
+        key: z.string().min(1),
+        value: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        return await upsertSetting(input.key, input.value);
+      }),
+
+    updateMultiple: ownerProcedure
+      .input(z.object({
+        settings: z.array(z.object({
+          key: z.string().min(1),
+          value: z.string(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        for (const s of input.settings) {
+          await upsertSetting(s.key, s.value);
+        }
+        return { success: true };
       }),
   }),
 
   // ===== YouTube Data =====
   youtube: router({
     channelDetails: ownerProcedure
-      .input(z.object({ channelId: z.string() }))
+      .input(z.object({ channelId: z.string().optional() }))
       .query(async ({ input }) => {
+        // Use provided channelId or fallback to DB setting
+        let channelId = input.channelId;
+        if (!channelId) {
+          channelId = await getSetting("youtube_channel_id") || "";
+        }
+        if (!channelId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "請先設定 YouTube 頻道 ID" });
+        }
         try {
           const data = await callDataApi("Youtube/get_channel_details", {
-            query: { id: input.channelId, hl: "zh-TW" },
+            query: { id: channelId, hl: "zh-TW" },
           });
           return data as any;
         } catch (error: any) {
@@ -516,14 +630,21 @@ export const appRouter = router({
 
     channelVideos: ownerProcedure
       .input(z.object({
-        channelId: z.string(),
+        channelId: z.string().optional(),
         filter: z.enum(["videos_latest", "streams_latest", "shorts_latest"]).default("videos_latest"),
         cursor: z.string().optional(),
       }))
       .query(async ({ input }) => {
+        let channelId = input.channelId;
+        if (!channelId) {
+          channelId = await getSetting("youtube_channel_id") || "";
+        }
+        if (!channelId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "請先設定 YouTube 頻道 ID" });
+        }
         try {
           const query: Record<string, unknown> = {
-            id: input.channelId,
+            id: channelId,
             filter: input.filter,
             hl: "zh-TW",
             gl: "TW",
@@ -548,6 +669,12 @@ export const appRouter = router({
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `YouTube API 錯誤: ${error.message}` });
         }
       }),
+
+    // Get stored channel ID
+    getChannelId: ownerProcedure.query(async () => {
+      const channelId = await getSetting("youtube_channel_id");
+      return { channelId: channelId || "" };
+    }),
   }),
 
   config: router({
