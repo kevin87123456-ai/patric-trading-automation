@@ -64,3 +64,4 @@
 - [x] Bug：公開頁面訪客有編輯權限，需移除（僅 owner 可編輯）
 - [x] Bug：觀點卡片下載失敗，需修復 html2canvas 截圖功能
 - [x] Bug：公開頁面 owner 編輯權限被誤刪，需加回（訪客唯讀、owner 可編輯+上傳）
+- [x] Bug：html-to-image toPng 因跨域 Google Fonts CSS 觸發 SecurityError，需跳過 web font 嵌入

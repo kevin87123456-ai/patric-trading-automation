@@ -707,6 +707,14 @@ export default function Home() {
                                 backgroundColor: "#09090b",
                                 pixelRatio: 3,
                                 cacheBust: true,
+                                skipFonts: true,
+                                filter: (node: HTMLElement) => {
+                                  // Skip cross-origin stylesheet links that cause CORS errors
+                                  if (node.tagName === "LINK" && (node as HTMLLinkElement).rel === "stylesheet") {
+                                    return false;
+                                  }
+                                  return true;
+                                },
                               });
                               const link = document.createElement("a");
                               link.download = `${analysisResult.coin}-${analysisResult.timeframe}-觀點.png`;
