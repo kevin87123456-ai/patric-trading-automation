@@ -44,7 +44,7 @@ export default function PublicArchive() {
             </div>
           </div>
           <Link href="/about">
-            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white text-xs gap-1.5">
+            <Button size="sm" className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs gap-1.5 shadow-lg shadow-emerald-500/20 animate-pulse hover:animate-none">
               <User className="h-3.5 w-3.5" />
               認識 Patric
             </Button>

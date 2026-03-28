@@ -192,7 +192,13 @@ function DashboardLayoutContent({
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => setLocation(item.path)}
+                      onClick={() => {
+                        if ((item as any).external) {
+                          window.open(item.path, '_blank');
+                        } else {
+                          setLocation(item.path);
+                        }
+                      }}
                       tooltip={item.label}
                       className={`h-10 transition-all font-normal`}
                     >
@@ -200,6 +206,11 @@ function DashboardLayoutContent({
                         className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
                       />
                       <span>{item.label}</span>
+                      {(item as any).external && (
+                        <svg className="h-3 w-3 ml-auto text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
