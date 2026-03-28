@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, analyses, generatedMaterials, type InsertAnalysis, type InsertGeneratedMaterial } from "../drizzle/schema";
+import { InsertUser, users, analyses, generatedMaterials, publishedAnalyses, type InsertAnalysis, type InsertGeneratedMaterial, type InsertPublishedAnalysis } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -125,7 +125,6 @@ export async function createMaterials(dataList: InsertGeneratedMaterial[]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.insert(generatedMaterials).values(dataList);
-  // Return all materials for this analysis
   if (dataList.length > 0) {
     return db.select().from(generatedMaterials).where(eq(generatedMaterials.analysisId, dataList[0].analysisId)).orderBy(desc(generatedMaterials.createdAt));
   }
@@ -141,13 +140,10 @@ export async function getMaterialsByAnalysis(analysisId: number) {
 export async function selectMaterial(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // First get the material to find its analysisId
   const rows = await db.select().from(generatedMaterials).where(eq(generatedMaterials.id, id)).limit(1);
   if (!rows[0]) throw new Error("Material not found");
   const analysisId = rows[0].analysisId;
-  // Deselect all for this analysis
   await db.update(generatedMaterials).set({ isSelected: 0 }).where(eq(generatedMaterials.analysisId, analysisId));
-  // Select the chosen one
   await db.update(generatedMaterials).set({ isSelected: 1 }).where(eq(generatedMaterials.id, id));
   return db.select().from(generatedMaterials).where(eq(generatedMaterials.id, id)).limit(1).then(r => r[0]);
 }
@@ -165,4 +161,35 @@ export async function getSelectedMaterialForAnalysis(analysisId: number) {
     .where(eq(generatedMaterials.analysisId, analysisId))
     .limit(50);
   return rows.find(r => r.isSelected === 1) ?? null;
+}
+
+// ===== Published Analyses CRUD =====
+
+export async function createPublishedAnalysis(data: InsertPublishedAnalysis) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(publishedAnalyses).values(data);
+  const insertId = result[0].insertId;
+  const rows = await db.select().from(publishedAnalyses).where(eq(publishedAnalyses.id, insertId)).limit(1);
+  return rows[0];
+}
+
+export async function getPublishedBySlug(slug: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select().from(publishedAnalyses).where(eq(publishedAnalyses.slug, slug)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getPublishedByAnalysisId(analysisId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select().from(publishedAnalyses).where(eq(publishedAnalyses.analysisId, analysisId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listPublishedAnalyses(limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(publishedAnalyses).orderBy(desc(publishedAnalyses.publishedAt)).limit(limit);
 }

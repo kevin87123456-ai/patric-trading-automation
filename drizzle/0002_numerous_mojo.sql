@@ -1,0 +1,23 @@
+CREATE TABLE `published_analyses` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`analysisId` int NOT NULL,
+	`slug` varchar(100) NOT NULL,
+	`coin` varchar(20) NOT NULL,
+	`timeframe` varchar(10) NOT NULL,
+	`imageUrl` text NOT NULL,
+	`direction` varchar(10) NOT NULL,
+	`confidence` varchar(10) NOT NULL,
+	`corgiBoxHigh` varchar(30) NOT NULL,
+	`corgiBoxLow` varchar(30) NOT NULL,
+	`corgiBox05` varchar(30) NOT NULL,
+	`currentPrice` varchar(30) NOT NULL,
+	`keyLevelsJson` text,
+	`analysisText` text NOT NULL,
+	`operationView` text NOT NULL,
+	`priceAlerts` text NOT NULL,
+	`coverTitle` varchar(30),
+	`publishedAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `published_analyses_id` PRIMARY KEY(`id`),
+	CONSTRAINT `published_analyses_slug_unique` UNIQUE(`slug`)
+);

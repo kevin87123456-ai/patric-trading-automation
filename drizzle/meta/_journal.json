@@ -15,6 +15,13 @@
       "when": 1774714110745,
       "tag": "0001_aromatic_retro_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1774715935263,
+      "tag": "0002_numerous_mojo",
+      "breakpoints": true
     }
   ]
 }

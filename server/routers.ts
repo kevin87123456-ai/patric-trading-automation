@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
+import { callDataApi } from "./_core/dataApi";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { ENV } from "./_core/env";
@@ -18,12 +19,18 @@ import {
   selectMaterial,
   markMaterialSynced,
   getSelectedMaterialForAnalysis,
+  createPublishedAnalysis,
+  getPublishedBySlug,
+  getPublishedByAnalysisId,
+  listPublishedAnalyses,
 } from "./db";
 import {
   CHART_ANALYSIS_SYSTEM_PROMPT,
   MATERIAL_GENERATION_SYSTEM_PROMPT,
+  VIEWPOINT_CARD_SYSTEM_PROMPT,
   buildAnalysisUserPrompt,
   buildMaterialUserPrompt,
+  buildViewpointCardPrompt,
 } from "../shared/prompts";
 import { appendRowToSheets, readSheetsHistory } from "./sheets";
 
@@ -31,9 +38,8 @@ const CANVA_TEMPLATE_URL = "https://www.canva.com/d/fN0X97dPnif9Y6-";
 const SHEETS_ID = "1rYD7tDyZ4HYwpqHmxIfbDGPujj-XNfKH9c9WTiXH68A";
 const SHEETS_RANGE = "工作表1";
 
-// Owner-only middleware: only Patric (the project owner) can access
+// Owner-only middleware
 const ownerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  // Allow owner (by openId) or admin role
   if (ctx.user.openId !== ENV.ownerOpenId && ctx.user.role !== "admin") {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -43,32 +49,25 @@ const ownerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-/**
- * Validate cover title is exactly 8 Chinese characters
- * Returns trimmed title or null if invalid
- */
 function validateCoverTitle(title: string): string | null {
   const cleaned = title.replace(/\s/g, "");
-  // Count characters (Chinese chars, punctuation, etc.)
   const charCount = Array.from(cleaned).length;
-  if (charCount >= 6 && charCount <= 10) {
-    // Accept 6-10 range to be lenient, but prefer exactly 8
-    return cleaned;
-  }
+  if (charCount >= 6 && charCount <= 10) return cleaned;
   return null;
 }
 
-/**
- * Validate IG story is at most 3 sentences
- */
 function validateIgStory(story: string): string {
-  // Split by common sentence endings
   const sentences = story.split(/[。！？\n]/).filter(s => s.trim().length > 0);
   if (sentences.length > 3) {
-    // Truncate to first 3 sentences
     return sentences.slice(0, 3).join("。") + "。";
   }
   return story;
+}
+
+function generateSlug(coin: string, timeframe: string): string {
+  const now = new Date();
+  const dateStr = now.toISOString().split("T")[0];
+  return `${dateStr}-${coin.toLowerCase()}-${timeframe.toLowerCase()}-${nanoid(6)}`;
 }
 
 export const appRouter = router({
@@ -189,14 +188,116 @@ export const appRouter = router({
         }
       }),
 
+    // Generate viewpoint card content (for screenshot sharing)
+    generateViewpoint: ownerProcedure
+      .input(z.object({ analysisId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const analysis = await getAnalysisById(input.analysisId);
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
+        if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        if (!analysis.analysisResult) throw new TRPCError({ code: "BAD_REQUEST", message: "分析尚未完成" });
+
+        const result = await invokeLLM({
+          messages: [
+            { role: "system", content: VIEWPOINT_CARD_SYSTEM_PROMPT },
+            { role: "user", content: buildViewpointCardPrompt(analysis.analysisResult) },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "viewpoint_card",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  operationView: { type: "string", description: "操作視角建議" },
+                  priceAlerts: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        price: { type: "number" },
+                        label: { type: "string" },
+                        action: { type: "string" },
+                      },
+                      required: ["price", "label", "action"],
+                      additionalProperties: false,
+                    },
+                  },
+                  summary: { type: "string", description: "一句話總結" },
+                },
+                required: ["operationView", "priceAlerts", "summary"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+
+        const content = result.choices[0]?.message?.content;
+        return JSON.parse(typeof content === "string" ? content : "{}");
+      }),
+
+    // Publish analysis to public page
+    publish: ownerProcedure
+      .input(z.object({
+        analysisId: z.number(),
+        operationView: z.string().min(1),
+        priceAlerts: z.string().min(1), // JSON string
+        coverTitle: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const analysis = await getAnalysisById(input.analysisId);
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
+        if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        if (!analysis.analysisResult) throw new TRPCError({ code: "BAD_REQUEST", message: "分析尚未完成" });
+
+        // Check if already published
+        const existing = await getPublishedByAnalysisId(analysis.id);
+        if (existing) throw new TRPCError({ code: "CONFLICT", message: "此分析已發佈" });
+
+        let parsed: any = {};
+        try { parsed = JSON.parse(analysis.analysisResult); } catch {}
+
+        const slug = generateSlug(analysis.coin, analysis.timeframe);
+
+        const published = await createPublishedAnalysis({
+          analysisId: analysis.id,
+          slug,
+          coin: analysis.coin,
+          timeframe: analysis.timeframe,
+          imageUrl: analysis.imageUrl,
+          direction: parsed.direction || "neutral",
+          confidence: parsed.confidence || "medium",
+          corgiBoxHigh: String(parsed.corgiBoxHigh || 0),
+          corgiBoxLow: String(parsed.corgiBoxLow || 0),
+          corgiBox05: String(parsed.corgiBox05 || 0),
+          currentPrice: String(parsed.currentPrice || 0),
+          keyLevelsJson: analysis.keyLevels || "[]",
+          analysisText: parsed.analysis || "",
+          operationView: input.operationView,
+          priceAlerts: input.priceAlerts,
+          coverTitle: input.coverTitle || parsed.coin || "",
+        });
+
+        return published;
+      }),
+
+    // Check if analysis is published
+    getPublishStatus: ownerProcedure
+      .input(z.object({ analysisId: z.number() }))
+      .query(async ({ input }) => {
+        const published = await getPublishedByAnalysisId(input.analysisId);
+        return { published: !!published, slug: published?.slug || null };
+      }),
+
     // Generate materials from analysis
     generateMaterials: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const analysis = await getAnalysisById(input.analysisId);
-        if (!analysis) throw new TRPCError({ code: "NOT_FOUND", message: "Analysis not found" });
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
         if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-        if (!analysis.analysisResult) throw new TRPCError({ code: "BAD_REQUEST", message: "Analysis not completed yet" });
+        if (!analysis.analysisResult) throw new TRPCError({ code: "BAD_REQUEST", message: "分析尚未完成" });
 
         const result = await invokeLLM({
           messages: [
@@ -216,10 +317,10 @@ export const appRouter = router({
                     items: {
                       type: "object",
                       properties: {
-                        coverTitle: { type: "string", description: "剛好8個中文字的封面大標" },
-                        youtubeTitle: { type: "string", description: "YouTube爆款標題" },
-                        igPost: { type: "string", description: "IG打臉教學型貼文" },
-                        igStory: { type: "string", description: "IG限動文案（不超過3句）" },
+                        coverTitle: { type: "string" },
+                        youtubeTitle: { type: "string" },
+                        igPost: { type: "string" },
+                        igStory: { type: "string" },
                       },
                       required: ["coverTitle", "youtubeTitle", "igPost", "igStory"],
                       additionalProperties: false,
@@ -234,10 +335,9 @@ export const appRouter = router({
         });
 
         const content = result.choices[0]?.message?.content;
-        const parsed = JSON.parse(typeof content === "string" ? content : "{}");
-        const options = parsed.options || [];
+        const parsedContent = JSON.parse(typeof content === "string" ? content : "{}");
+        const options = parsedContent.options || [];
 
-        // Validate and clean generated materials
         const materialsData = options.slice(0, 3).map((opt: any) => {
           const validatedTitle = validateCoverTitle(opt.coverTitle) || opt.coverTitle.substring(0, 8);
           const validatedStory = validateIgStory(opt.igStory || "");
@@ -252,49 +352,42 @@ export const appRouter = router({
         });
 
         if (materialsData.length === 0) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "素材生成失敗，請重試" });
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "素材生成失敗" });
         }
 
-        const materials = await createMaterials(materialsData);
-        return materials;
+        return await createMaterials(materialsData);
       }),
 
-    // Select a material option
     selectMaterial: ownerProcedure
       .input(z.object({ materialId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const material = await selectMaterial(input.materialId);
-        return material;
+      .mutation(async ({ input }) => {
+        return await selectMaterial(input.materialId);
       }),
 
-    // Get analysis with materials
     get: ownerProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ ctx, input }) => {
         const analysis = await getAnalysisById(input.id);
-        if (!analysis) throw new TRPCError({ code: "NOT_FOUND", message: "Analysis not found" });
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
         if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
         const materials = await getMaterialsByAnalysis(analysis.id);
         return { analysis, materials };
       }),
 
-    // List all analyses
     list: ownerProcedure.query(async ({ ctx }) => {
       return listAnalysesByUser(ctx.user.id);
     }),
 
-    // Sync selected material to Google Sheets (real API call)
     syncToSheets: ownerProcedure
       .input(z.object({ analysisId: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const analysis = await getAnalysisById(input.analysisId);
-        if (!analysis) throw new TRPCError({ code: "NOT_FOUND", message: "Analysis not found" });
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
         if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
 
         const material = await getSelectedMaterialForAnalysis(analysis.id);
         if (!material) throw new TRPCError({ code: "BAD_REQUEST", message: "請先選擇一個方案" });
 
-        // Parse analysis result for key levels
         let keyLevelStr = "";
         try {
           const parsed = JSON.parse(analysis.analysisResult || "{}");
@@ -312,32 +405,89 @@ export const appRouter = router({
           material.igPost?.substring(0, 200) || "",
         ];
 
-        // Actually write to Google Sheets
         const success = await appendRowToSheets(row);
         if (!success) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Google Sheets 同步失敗，請稍後重試",
-          });
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Google Sheets 同步失敗" });
         }
 
-        // Mark as synced only after successful write
         await markMaterialSynced(material.id);
-
-        return {
-          success: true,
-          row,
-          sheetsId: SHEETS_ID,
-          sheetsRange: SHEETS_RANGE,
-          material,
-        };
+        return { success: true, row, sheetsId: SHEETS_ID, material };
       }),
 
-    // Read history from Google Sheets
     sheetsHistory: ownerProcedure.query(async () => {
       const rows = await readSheetsHistory();
       return { rows };
     }),
+  }),
+
+  // ===== Public routes (no auth required) =====
+  public: router({
+    // Get single published analysis by slug
+    getAnalysis: publicProcedure
+      .input(z.object({ slug: z.string() }))
+      .query(async ({ input }) => {
+        const published = await getPublishedBySlug(input.slug);
+        if (!published) throw new TRPCError({ code: "NOT_FOUND", message: "找不到此盤面分析" });
+        return published;
+      }),
+
+    // List all published analyses (public archive)
+    listAnalyses: publicProcedure
+      .input(z.object({ limit: z.number().min(1).max(100).default(30) }).optional())
+      .query(async ({ input }) => {
+        return listPublishedAnalyses(input?.limit || 30);
+      }),
+  }),
+
+  // ===== YouTube Data =====
+  youtube: router({
+    channelDetails: ownerProcedure
+      .input(z.object({ channelId: z.string() }))
+      .query(async ({ input }) => {
+        try {
+          const data = await callDataApi("Youtube/get_channel_details", {
+            query: { id: input.channelId, hl: "zh-TW" },
+          });
+          return data as any;
+        } catch (error: any) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `YouTube API 錯誤: ${error.message}` });
+        }
+      }),
+
+    channelVideos: ownerProcedure
+      .input(z.object({
+        channelId: z.string(),
+        filter: z.enum(["videos_latest", "streams_latest", "shorts_latest"]).default("videos_latest"),
+        cursor: z.string().optional(),
+      }))
+      .query(async ({ input }) => {
+        try {
+          const query: Record<string, unknown> = {
+            id: input.channelId,
+            filter: input.filter,
+            hl: "zh-TW",
+            gl: "TW",
+          };
+          if (input.cursor) query.cursor = input.cursor;
+          const data = await callDataApi("Youtube/get_channel_videos", { query });
+          return data as any;
+        } catch (error: any) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `YouTube API 錯誤: ${error.message}` });
+        }
+      }),
+
+    search: ownerProcedure
+      .input(z.object({ query: z.string().min(1) }))
+      .query(async ({ input }) => {
+        try {
+          const data = await callDataApi("Youtube/search", {
+            query: { q: input.query, hl: "zh-TW", gl: "TW" },
+          });
+          return data as any;
+        } catch (error: any) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `YouTube API 錯誤: ${error.message}` });
+        }
+      }),
   }),
 
   config: router({

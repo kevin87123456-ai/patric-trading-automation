@@ -1,30 +1,25 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { useState, useRef, useCallback } from "react";
+import ViewpointCard from "@/components/ViewpointCard";
 import {
   Upload,
-  Zap,
   Loader2,
-  Check,
+  Zap,
   Copy,
+  Check,
   ExternalLink,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  ArrowRight,
+  Share2,
+  Send,
   ImageIcon,
   Sparkles,
-  Send,
-  BarChart3,
+  Eye,
 } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
 
 type AnalysisResult = {
   coin: string;
@@ -33,625 +28,574 @@ type AnalysisResult = {
   corgiBoxLow: number;
   corgiBox05: number;
   currentPrice: number;
-  direction: "bullish" | "bearish" | "neutral";
+  direction: string;
   keyLevels: Array<{ price: number; type: string; description: string }>;
   analysis: string;
-  confidence: "high" | "medium" | "low";
+  confidence: string;
 };
 
-type MaterialOption = {
-  id: number;
-  coverTitle: string;
-  youtubeTitle: string;
-  igPost: string | null;
-  igStory: string | null;
-  isSelected: number;
-  syncedToSheets: number;
+type ViewpointData = {
+  operationView: string;
+  priceAlerts: Array<{ price: number; label: string; action: string }>;
+  summary: string;
 };
-
-// Step indicator
-function StepIndicator({ step, currentStep, label }: { step: number; currentStep: number; label: string }) {
-  const isActive = currentStep >= step;
-  const isCurrent = currentStep === step;
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground"
-        } ${isCurrent ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
-      >
-        {isActive && currentStep > step ? <Check className="h-4 w-4" /> : step}
-      </div>
-      <span className={`text-sm font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function DirectionBadge({ direction }: { direction: string }) {
-  if (direction === "bullish") {
-    return (
-      <Badge className="bg-profit/15 text-profit border-profit/30 hover:bg-profit/20">
-        <TrendingUp className="h-3 w-3 mr-1" /> 看多
-      </Badge>
-    );
-  }
-  if (direction === "bearish") {
-    return (
-      <Badge className="bg-loss/15 text-loss border-loss/30 hover:bg-loss/20">
-        <TrendingDown className="h-3 w-3 mr-1" /> 看空
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="secondary">
-      <Minus className="h-3 w-3 mr-1" /> 觀望
-    </Badge>
-  );
-}
-
-function ConfidenceBadge({ confidence }: { confidence: string }) {
-  const colors: Record<string, string> = {
-    high: "bg-profit/15 text-profit border-profit/30",
-    medium: "bg-warning/15 text-warning border-warning/30",
-    low: "bg-loss/15 text-loss border-loss/30",
-  };
-  const labels: Record<string, string> = { high: "高信心", medium: "中信心", low: "低信心" };
-  return <Badge className={colors[confidence] || ""}>{labels[confidence] || confidence}</Badge>;
-}
-
-function copyToClipboard(text: string, label: string) {
-  navigator.clipboard.writeText(text);
-  toast.success(`已複製${label}`);
-}
 
 export default function Home() {
-  const { user } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [coin, setCoin] = useState("BTC");
   const [timeframe, setTimeframe] = useState("4H");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [imageMimeType, setImageMimeType] = useState("image/png");
-  const [analysisId, setAnalysisId] = useState<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<number | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [materials, setMaterials] = useState<MaterialOption[]>([]);
-  const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewpointData, setViewpointData] = useState<ViewpointData | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("analysis");
 
   const uploadMutation = trpc.analysis.upload.useMutation();
   const analyzeMutation = trpc.analysis.analyze.useMutation();
-  const generateMutation = trpc.analysis.generateMaterials.useMutation();
+  const viewpointMutation = trpc.analysis.generateViewpoint.useMutation();
+  const materialsMutation = trpc.analysis.generateMaterials.useMutation();
   const selectMutation = trpc.analysis.selectMaterial.useMutation();
   const syncMutation = trpc.analysis.syncToSheets.useMutation();
-  const canvaQuery = trpc.config.getCanvaUrl.useQuery();
+  const publishMutation = trpc.analysis.publish.useMutation();
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const publishStatusQuery = trpc.analysis.getPublishStatus.useQuery(
+    { analysisId: currentAnalysisId! },
+    { enabled: !!currentAnalysisId }
+  );
+
+  const isUploading = uploadMutation.isPending;
+  const isAnalyzing = analyzeMutation.isPending;
+  const isGeneratingViewpoint = viewpointMutation.isPending;
+  const isGeneratingMaterials = materialsMutation.isPending;
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("請上傳圖片檔案");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("圖片大小不得超過 10MB");
-      return;
-    }
-
-    setImageMimeType(file.type);
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setImagePreview(dataUrl);
-      // Extract base64 part
-      const base64 = dataUrl.split(",")[1];
-      setImageBase64(base64);
-    };
+    reader.onload = () => setPreviewUrl(reader.result as string);
     reader.readAsDataURL(file);
-  }, []);
-
-  const handleUploadAndAnalyze = useCallback(async () => {
-    if (!imageBase64) {
-      toast.error("請先上傳盤面截圖");
-      return;
-    }
 
     try {
-      // Step 1: Upload
-      toast.loading("上傳圖片中...", { id: "analyze" });
-      const analysis = await uploadMutation.mutateAsync({
-        imageBase64,
-        coin,
-        timeframe,
-        mimeType: imageMimeType,
+      const base64 = await new Promise<string>((resolve) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const result = r.result as string;
+          resolve(result.split(",")[1]);
+        };
+        r.readAsDataURL(file);
       });
-      setAnalysisId(analysis.id);
 
-      // Step 2: Analyze
-      toast.loading("AI 分析盤面中（約 10-20 秒）...", { id: "analyze" });
+      const analysis = await uploadMutation.mutateAsync({
+        imageBase64: base64,
+        coin: coin.toUpperCase(),
+        timeframe,
+        mimeType: file.type || "image/png",
+      });
+
+      setCurrentAnalysisId(analysis.id);
+      setAnalysisResult(null);
+      setViewpointData(null);
+
+      toast.success("圖片上傳成功", { description: "開始分析盤面..." });
+
       const result = await analyzeMutation.mutateAsync({ analysisId: analysis.id });
 
       if (result?.analysisResult) {
         try {
           const parsed = JSON.parse(result.analysisResult);
           setAnalysisResult(parsed);
-          setCurrentStep(2);
-          toast.success("盤面分析完成", { id: "analyze" });
-        } catch {
-          toast.error("分析結果解析失敗", { id: "analyze" });
-        }
+          setActiveTab("analysis");
+          toast.success("分析完成", { description: `${parsed.coin} ${parsed.direction === "bullish" ? "偏多" : parsed.direction === "bearish" ? "偏空" : "觀望"}` });
+        } catch {}
       }
     } catch (error: any) {
-      toast.error(error.message || "分析失敗", { id: "analyze" });
+      toast.error("錯誤", { description: error.message });
     }
-  }, [imageBase64, coin, timeframe, imageMimeType, uploadMutation, analyzeMutation]);
+  }, [coin, timeframe]);
 
-  const handleGenerateMaterials = useCallback(async () => {
-    if (!analysisId) return;
+  const handleGenerateViewpoint = async () => {
+    if (!currentAnalysisId) return;
     try {
-      toast.loading("生成直播素材中...", { id: "generate" });
-      const result = await generateMutation.mutateAsync({ analysisId });
-      setMaterials(result as MaterialOption[]);
-      setCurrentStep(3);
-      toast.success("3 組方案已生成", { id: "generate" });
+      const data = await viewpointMutation.mutateAsync({ analysisId: currentAnalysisId });
+      setViewpointData(data);
+      setActiveTab("viewpoint");
+      toast.success("觀點卡片已生成");
     } catch (error: any) {
-      toast.error(error.message || "素材生成失敗", { id: "generate" });
+      toast.error("生成失敗", { description: error.message });
     }
-  }, [analysisId, generateMutation]);
+  };
 
-  const handleSelectMaterial = useCallback(async (materialId: number) => {
+  const handleGenerateMaterials = async () => {
+    if (!currentAnalysisId) return;
     try {
-      await selectMutation.mutateAsync({ materialId });
-      setSelectedMaterialId(materialId);
-      setMaterials(prev => prev.map(m => ({ ...m, isSelected: m.id === materialId ? 1 : 0 })));
-      toast.success("已選定方案");
+      await materialsMutation.mutateAsync({ analysisId: currentAnalysisId });
+      setActiveTab("materials");
+      toast.success("素材已生成");
     } catch (error: any) {
-      toast.error(error.message || "選擇失敗");
+      toast.error("生成失敗", { description: error.message });
     }
-  }, [selectMutation]);
+  };
 
-  const handleSyncToSheets = useCallback(async () => {
-    if (!analysisId) return;
+  const handlePublish = async () => {
+    if (!currentAnalysisId || !viewpointData) return;
     try {
-      toast.loading("同步至戰略庫...", { id: "sync" });
-      await syncMutation.mutateAsync({ analysisId });
-      setMaterials(prev => prev.map(m => m.isSelected === 1 ? { ...m, syncedToSheets: 1 } : m));
-      setCurrentStep(4);
-      toast.success("已同步至 Google Sheets 戰略庫", { id: "sync" });
+      const result = await publishMutation.mutateAsync({
+        analysisId: currentAnalysisId,
+        operationView: viewpointData.operationView,
+        priceAlerts: JSON.stringify(viewpointData.priceAlerts),
+        coverTitle: analysisResult?.coin || "",
+      });
+      publishStatusQuery.refetch();
+      const url = `${window.location.origin}/analysis/${result.slug}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("已發佈並複製連結", { description: url });
     } catch (error: any) {
-      toast.error(error.message || "同步失敗", { id: "sync" });
+      toast.error("發佈失敗", { description: error.message });
     }
-  }, [analysisId, syncMutation]);
+  };
 
-  const handleReset = useCallback(() => {
-    setCurrentStep(1);
-    setImagePreview(null);
-    setImageBase64(null);
-    setAnalysisId(null);
-    setAnalysisResult(null);
-    setMaterials([]);
-    setSelectedMaterialId(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
+  const copyToClipboard = async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
-  const isLoading = uploadMutation.isPending || analyzeMutation.isPending || generateMutation.isPending;
+  const materials = materialsMutation.data as any[];
+
+  const coins = ["BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX"];
+  const timeframes = ["1M", "5M", "15M", "1H", "4H", "1D", "1W"];
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight font-display">素材生成</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            上傳盤面截圖，一鍵產出直播封面與社群文案
-          </p>
-        </div>
-        {currentStep > 1 && (
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            重新開始
-          </Button>
-        )}
-      </div>
-
-      {/* Step Indicators */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        <StepIndicator step={1} currentStep={currentStep} label="上傳分析" />
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        <StepIndicator step={2} currentStep={currentStep} label="生成素材" />
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        <StepIndicator step={3} currentStep={currentStep} label="選擇方案" />
-        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        <StepIndicator step={4} currentStep={currentStep} label="同步發布" />
-      </div>
-
-      {/* Step 1: Upload & Analyze */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ImageIcon className="h-5 w-5 text-primary" />
-            盤面上傳與分析
-          </CardTitle>
-          <CardDescription>上傳加密貨幣盤面截圖，AI 自動識別柯基框關鍵位階</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Coin Select */}
-            <div className="space-y-2">
-              <Label>幣種</Label>
-              <Select value={coin} onValueChange={setCoin}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BTC">BTC</SelectItem>
-                  <SelectItem value="ETH">ETH</SelectItem>
-                  <SelectItem value="SOL">SOL</SelectItem>
-                  <SelectItem value="BNB">BNB</SelectItem>
-                  <SelectItem value="XRP">XRP</SelectItem>
-                  <SelectItem value="DOGE">DOGE</SelectItem>
-                  <SelectItem value="OTHER">其他</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Timeframe Select */}
-            <div className="space-y-2">
-              <Label>時間週期</Label>
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15M">15 分鐘</SelectItem>
-                  <SelectItem value="1H">1 小時</SelectItem>
-                  <SelectItem value="4H">4 小時</SelectItem>
-                  <SelectItem value="1D">日線</SelectItem>
-                  <SelectItem value="1W">週線</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Upload */}
-            <div className="space-y-2">
-              <Label>盤面截圖</Label>
-              <div className="flex gap-2">
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Image Preview */}
-          {imagePreview && (
-            <div className="relative rounded-lg overflow-hidden border border-border/50 bg-muted/30">
-              <img
-                src={imagePreview}
-                alt="盤面截圖"
-                className="w-full max-h-[400px] object-contain"
-              />
-            </div>
-          )}
-
-          {/* Analyze Button */}
-          <Button
-            onClick={handleUploadAndAnalyze}
-            disabled={!imageBase64 || isLoading}
-            className="w-full md:w-auto"
-            size="lg"
-          >
-            {uploadMutation.isPending || analyzeMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                AI 分析中...
-              </>
-            ) : (
-              <>
-                <Zap className="h-4 w-4 mr-2" />
-                上傳並分析盤面
-              </>
-            )}
-          </Button>
-
-          {/* Analysis Result */}
-          {analysisResult && (
-            <div className="space-y-4 pt-2">
-              <Separator />
-              <div className="flex items-center gap-3 flex-wrap">
-                <h3 className="font-bold text-lg font-display">分析結果</h3>
-                <DirectionBadge direction={analysisResult.direction} />
-                <ConfidenceBadge confidence={analysisResult.confidence} />
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
-                  <p className="text-xs text-muted-foreground">柯基框上緣</p>
-                  <p className="font-mono font-bold text-sm mt-1">${analysisResult.corgiBoxHigh.toLocaleString()}</p>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
-                  <p className="text-xs text-muted-foreground">柯基框下緣</p>
-                  <p className="font-mono font-bold text-sm mt-1">${analysisResult.corgiBoxLow.toLocaleString()}</p>
-                </div>
-                <div className="bg-primary/10 rounded-lg p-3 border border-primary/30">
-                  <p className="text-xs text-primary">0.5 處（關鍵位）</p>
-                  <p className="font-mono font-bold text-sm mt-1 text-primary">${analysisResult.corgiBox05.toLocaleString()}</p>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
-                  <p className="text-xs text-muted-foreground">當前價格</p>
-                  <p className="font-mono font-bold text-sm mt-1">${analysisResult.currentPrice.toLocaleString()}</p>
+      {/* Upload Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left: Upload & Config */}
+        <Card className="border-zinc-800 bg-zinc-900/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Upload className="h-4 w-4 text-emerald-400" />
+              上傳盤面截圖
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Coin & Timeframe */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-zinc-500 mb-1.5 block">幣種</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {coins.slice(0, 4).map((c) => (
+                    <Button
+                      key={c}
+                      variant={coin === c ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCoin(c)}
+                      className="text-xs px-2.5 h-7"
+                    >
+                      {c}
+                    </Button>
+                  ))}
+                  {!coins.slice(0, 4).includes(coin) ? (
+                    <Input
+                      value={coin}
+                      onChange={(e) => setCoin(e.target.value.toUpperCase())}
+                      className="h-7 w-16 text-xs bg-zinc-900/50 border-zinc-800 font-mono"
+                      placeholder="其他"
+                      autoFocus
+                    />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCoin("")}
+                      className="text-xs px-2.5 h-7 text-zinc-500"
+                    >
+                      其他
+                    </Button>
+                  )}
                 </div>
               </div>
+              <div>
+                <label className="text-xs text-zinc-500 mb-1.5 block">週期</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {timeframes.slice(3, 6).map((t) => (
+                    <Button
+                      key={t}
+                      variant={timeframe === t ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeframe(t)}
+                      className="text-xs px-2.5 h-7"
+                    >
+                      {t}
+                    </Button>
+                  ))}
+                  {!timeframes.slice(3, 6).includes(timeframe) ? (
+                    <Input
+                      value={timeframe}
+                      onChange={(e) => setTimeframe(e.target.value.toUpperCase())}
+                      className="h-7 w-14 text-xs bg-zinc-900/50 border-zinc-800 font-mono"
+                      placeholder="其他"
+                      autoFocus
+                    />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTimeframe("")}
+                      className="text-xs px-2.5 h-7 text-zinc-500"
+                    >
+                      其他
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
 
-              <p className="text-sm text-muted-foreground leading-relaxed">{analysisResult.analysis}</p>
-
-              {analysisResult.keyLevels.length > 0 && (
+            {/* Upload Area */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-zinc-800 rounded-xl p-6 text-center cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all"
+            >
+              {previewUrl ? (
+                <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded-lg object-contain" />
+              ) : (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">關鍵位階</p>
-                  <div className="flex flex-wrap gap-2">
-                    {analysisResult.keyLevels.map((level, i) => (
-                      <Badge key={i} variant="outline" className="font-mono text-xs">
-                        ${level.price.toLocaleString()} - {level.description}
-                      </Badge>
-                    ))}
-                  </div>
+                  <ImageIcon className="h-8 w-8 text-zinc-600 mx-auto" />
+                  <p className="text-sm text-zinc-400">點擊或拖放盤面截圖</p>
+                  <p className="text-xs text-zinc-600">支援 PNG, JPG</p>
                 </div>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
 
-      {/* Step 2: Generate Materials */}
-      {currentStep >= 2 && (
-        <Card className="border-border/50">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="h-5 w-5 text-primary" />
-              直播素材生成
-            </CardTitle>
-            <CardDescription>根據盤面分析，自動產出 3 組封面大標與社群文案</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {materials.length === 0 ? (
-              <Button
-                onClick={handleGenerateMaterials}
-                disabled={generateMutation.isPending}
-                size="lg"
-                className="w-full md:w-auto"
-              >
-                {generateMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    生成素材中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    一鍵生成 3 組方案
-                  </>
-                )}
-              </Button>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {materials.map((m, idx) => (
-                  <MaterialCard
-                    key={m.id}
-                    material={m}
-                    index={idx}
-                    isSelected={m.isSelected === 1}
-                    onSelect={() => handleSelectMaterial(m.id)}
-                    isSelecting={selectMutation.isPending}
-                  />
-                ))}
+            {(isUploading || isAnalyzing) && (
+              <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {isUploading ? "上傳中..." : "AI 分析中..."}
               </div>
             )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Step 3+4: Selected Material Actions */}
-      {currentStep >= 3 && selectedMaterialId && (
-        <SelectedMaterialActions
-          material={materials.find(m => m.id === selectedMaterialId)!}
-          canvaUrl={canvaQuery.data?.url || ""}
-          onSyncToSheets={handleSyncToSheets}
-          isSyncing={syncMutation.isPending}
-          isSynced={materials.find(m => m.id === selectedMaterialId)?.syncedToSheets === 1}
-        />
+        {/* Right: Quick Actions */}
+        <Card className="border-zinc-800 bg-zinc-900/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4 text-emerald-400" />
+              快速操作
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              onClick={handleGenerateViewpoint}
+              disabled={!currentAnalysisId || !analysisResult || isGeneratingViewpoint}
+              className="w-full justify-start"
+              variant="outline"
+            >
+              {isGeneratingViewpoint ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Eye className="h-4 w-4 mr-2" />
+              )}
+              生成觀點卡片（截圖發群）
+            </Button>
+
+            <Button
+              onClick={handleGenerateMaterials}
+              disabled={!currentAnalysisId || !analysisResult || isGeneratingMaterials}
+              className="w-full justify-start"
+              variant="outline"
+            >
+              {isGeneratingMaterials ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              生成直播素材（封面 + 標題 + 文案）
+            </Button>
+
+            <Button
+              onClick={handlePublish}
+              disabled={!viewpointData || publishMutation.isPending || publishStatusQuery.data?.published}
+              className="w-full justify-start"
+              variant="outline"
+            >
+              {publishMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Share2 className="h-4 w-4 mr-2" />
+              )}
+              {publishStatusQuery.data?.published ? "已發佈至公開頁面" : "發佈至每日盤面（公開）"}
+            </Button>
+
+            {publishStatusQuery.data?.slug && (
+              <div className="bg-zinc-800/40 rounded-lg p-3">
+                <p className="text-xs text-zinc-500 mb-1">公開連結</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs text-emerald-400 flex-1 truncate">
+                    {window.location.origin}/analysis/{publishStatusQuery.data.slug}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() =>
+                      copyToClipboard(
+                        `${window.location.origin}/analysis/${publishStatusQuery.data?.slug}`,
+                        "link"
+                      )
+                    }
+                  >
+                    {copiedField === "link" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <a href="https://www.canva.com" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" className="w-full justify-start mt-2">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                開啟 Canva 製作封面
+              </Button>
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Results Tabs */}
+      {(analysisResult || viewpointData || materials) && (
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="bg-zinc-900/50 border border-zinc-800">
+            <TabsTrigger value="analysis">盤面分析</TabsTrigger>
+            <TabsTrigger value="viewpoint" disabled={!viewpointData}>
+              觀點卡片
+            </TabsTrigger>
+            <TabsTrigger value="materials" disabled={!materials}>
+              直播素材
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Analysis Tab */}
+          <TabsContent value="analysis" className="mt-4">
+            {analysisResult && (
+              <Card className="border-zinc-800 bg-zinc-900/30">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <h3 className="text-lg font-bold text-white">
+                      {analysisResult.coin} {analysisResult.timeframe}
+                    </h3>
+                    <Badge
+                      className={
+                        analysisResult.direction === "bullish"
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                          : analysisResult.direction === "bearish"
+                          ? "bg-red-500/20 text-red-400 border-red-500/30"
+                          : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                      }
+                    >
+                      {analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs border-zinc-700">
+                      {analysisResult.confidence === "high" ? "高信心" : analysisResult.confidence === "medium" ? "中信心" : "低信心"}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="bg-zinc-800/40 rounded-lg p-3">
+                      <p className="text-[10px] text-zinc-500 uppercase">柯基框上緣</p>
+                      <p className="font-mono font-bold text-sm text-white mt-1">${analysisResult.corgiBoxHigh.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-zinc-800/40 rounded-lg p-3">
+                      <p className="text-[10px] text-zinc-500 uppercase">柯基框下緣</p>
+                      <p className="font-mono font-bold text-sm text-white mt-1">${analysisResult.corgiBoxLow.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-emerald-950/30 rounded-lg p-3 border border-emerald-800/30">
+                      <p className="text-[10px] text-emerald-400 uppercase">0.5 關鍵位</p>
+                      <p className="font-mono font-bold text-sm text-emerald-300 mt-1">${analysisResult.corgiBox05.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-zinc-800/40 rounded-lg p-3">
+                      <p className="text-[10px] text-zinc-500 uppercase">當前價格</p>
+                      <p className="font-mono font-bold text-sm text-white mt-1">${analysisResult.currentPrice.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-zinc-300 leading-relaxed">{analysisResult.analysis}</p>
+
+                  {analysisResult.keyLevels?.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs text-zinc-500 uppercase tracking-wider">關鍵位階</p>
+                      {analysisResult.keyLevels.map((kl, i) => (
+                        <div key={i} className="flex items-center justify-between bg-zinc-800/30 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm text-white">${kl.price.toLocaleString()}</span>
+                            <Badge variant="outline" className="text-[10px] border-zinc-700">{kl.type}</Badge>
+                          </div>
+                          <span className="text-xs text-zinc-400">{kl.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Viewpoint Card Tab */}
+          <TabsContent value="viewpoint" className="mt-4">
+            {viewpointData && analysisResult && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-zinc-500">截圖此卡片即可分享給群友</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      copyToClipboard(
+                        `${analysisResult.coin} ${analysisResult.timeframe} 觀點\n方向：${analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}\n${viewpointData.operationView}\n\n${viewpointData.summary}`,
+                        "viewpoint-text"
+                      )
+                    }
+                  >
+                    {copiedField === "viewpoint-text" ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                    複製文字版
+                  </Button>
+                </div>
+                <ViewpointCard
+                  coin={analysisResult.coin}
+                  timeframe={analysisResult.timeframe}
+                  direction={analysisResult.direction}
+                  confidence={analysisResult.confidence}
+                  corgiBoxHigh={analysisResult.corgiBoxHigh}
+                  corgiBoxLow={analysisResult.corgiBoxLow}
+                  corgiBox05={analysisResult.corgiBox05}
+                  currentPrice={analysisResult.currentPrice}
+                  analysisText={analysisResult.analysis}
+                  operationView={viewpointData.operationView}
+                  priceAlerts={viewpointData.priceAlerts}
+                  summary={viewpointData.summary}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Materials Tab */}
+          <TabsContent value="materials" className="mt-4">
+            {materials && materials.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {materials.map((m: any, i: number) => (
+                  <Card
+                    key={m.id}
+                    className={`border-zinc-800 bg-zinc-900/30 transition-all ${
+                      m.isSelected ? "ring-2 ring-emerald-500 border-emerald-500/50" : "hover:border-zinc-700"
+                    }`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline" className="text-xs">方案 {i + 1}</Badge>
+                        {m.isSelected && <Badge className="bg-emerald-500/20 text-emerald-400 text-xs">已選</Badge>}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {/* Cover Title */}
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase mb-1">封面大標</p>
+                        <div className="flex items-center justify-between bg-zinc-800/40 rounded-lg px-3 py-2">
+                          <span className="text-lg font-black text-white">{m.coverTitle}</span>
+                          <button onClick={() => copyToClipboard(m.coverTitle, `cover-${m.id}`)}>
+                            {copiedField === `cover-${m.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* YouTube Title */}
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase mb-1">YouTube 標題</p>
+                        <div className="flex items-start justify-between bg-zinc-800/40 rounded-lg px-3 py-2 gap-2">
+                          <span className="text-sm text-zinc-200">{m.youtubeTitle}</span>
+                          <button onClick={() => copyToClipboard(m.youtubeTitle, `yt-${m.id}`)} className="shrink-0 mt-0.5">
+                            {copiedField === `yt-${m.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* IG Story */}
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase mb-1">IG 限動</p>
+                        <div className="flex items-start justify-between bg-zinc-800/40 rounded-lg px-3 py-2 gap-2">
+                          <span className="text-xs text-zinc-300 leading-relaxed">{m.igStory}</span>
+                          <button onClick={() => copyToClipboard(m.igStory || "", `story-${m.id}`)} className="shrink-0 mt-0.5">
+                            {copiedField === `story-${m.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* IG Post (collapsible) */}
+                      <details className="group">
+                        <summary className="text-[10px] text-zinc-500 uppercase cursor-pointer hover:text-zinc-400">
+                          IG 貼文 ▸
+                        </summary>
+                        <div className="mt-2 bg-zinc-800/40 rounded-lg px-3 py-2 relative">
+                          <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">{m.igPost}</p>
+                          <button
+                            onClick={() => copyToClipboard(m.igPost || "", `post-${m.id}`)}
+                            className="absolute top-2 right-2"
+                          >
+                            {copiedField === `post-${m.id}` ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500" />}
+                          </button>
+                        </div>
+                      </details>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant={m.isSelected ? "default" : "outline"}
+                          className="flex-1 text-xs"
+                          onClick={() => selectMutation.mutate({ materialId: m.id }, {
+                            onSuccess: () => {
+                              materialsMutation.data?.forEach((item: any) => {
+                                item.isSelected = item.id === m.id ? 1 : 0;
+                              });
+                              toast.success(`已選擇方案 ${i + 1}`);
+                            }
+                          })}
+                        >
+                          {m.isSelected ? "已選擇" : "選擇此方案"}
+                        </Button>
+                        {m.isSelected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => {
+                              if (!currentAnalysisId) return;
+                              syncMutation.mutate({ analysisId: currentAnalysisId }, {
+                                onSuccess: () => toast.success("已同步至 Google Sheets"),
+                                onError: (e) => toast.error("同步失敗", { description: e.message }),
+                              });
+                            }}
+                            disabled={syncMutation.isPending}
+                          >
+                            {syncMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
-  );
-}
-
-function MaterialCard({
-  material,
-  index,
-  isSelected,
-  onSelect,
-  isSelecting,
-}: {
-  material: MaterialOption;
-  index: number;
-  isSelected: boolean;
-  onSelect: () => void;
-  isSelecting: boolean;
-}) {
-  const labels = ["方案 A：時效型", "方案 B：教學型", "方案 C：情緒型"];
-  return (
-    <Card
-      className={`transition-all cursor-pointer hover:border-primary/50 ${
-        isSelected ? "border-primary ring-1 ring-primary/30 bg-primary/5" : "border-border/50"
-      }`}
-      onClick={onSelect}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <Badge variant={isSelected ? "default" : "secondary"} className="text-xs">
-            {labels[index] || `方案 ${index + 1}`}
-          </Badge>
-          {isSelected && <Check className="h-4 w-4 text-primary" />}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Cover Title */}
-        <div>
-          <p className="text-xs text-muted-foreground mb-1">封面 8 字大標</p>
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            <p className="text-xl font-black font-display tracking-wider">{material.coverTitle}</p>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); copyToClipboard(material.coverTitle, "封面大標"); }}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1 transition-colors"
-          >
-            <Copy className="h-3 w-3" /> 複製
-          </button>
-        </div>
-
-        {/* YouTube Title */}
-        <div>
-          <p className="text-xs text-muted-foreground mb-1">YouTube 標題</p>
-          <p className="text-sm font-medium leading-snug">{material.youtubeTitle}</p>
-          <button
-            onClick={(e) => { e.stopPropagation(); copyToClipboard(material.youtubeTitle, "YouTube 標題"); }}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1 transition-colors"
-          >
-            <Copy className="h-3 w-3" /> 複製
-          </button>
-        </div>
-
-        {/* IG Story */}
-        <div>
-          <p className="text-xs text-muted-foreground mb-1">IG 限動</p>
-          <p className="text-sm italic text-muted-foreground leading-snug">{material.igStory}</p>
-          <button
-            onClick={(e) => { e.stopPropagation(); copyToClipboard(material.igStory || "", "限動文案"); }}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1 transition-colors"
-          >
-            <Copy className="h-3 w-3" /> 複製
-          </button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function SelectedMaterialActions({
-  material,
-  canvaUrl,
-  onSyncToSheets,
-  isSyncing,
-  isSynced,
-}: {
-  material: MaterialOption;
-  canvaUrl: string;
-  onSyncToSheets: () => void;
-  isSyncing: boolean;
-  isSynced: boolean;
-}) {
-  return (
-    <Card className="border-primary/30 bg-primary/5">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Send className="h-5 w-5 text-primary" />
-          已選方案：發布準備
-        </CardTitle>
-        <CardDescription>複製素材、跳轉 Canva 編輯封面、同步至戰略庫</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Selected Cover Title */}
-        <div className="bg-background rounded-xl p-6 text-center border border-border/50">
-          <p className="text-xs text-muted-foreground mb-2">封面 8 字大標</p>
-          <p className="text-3xl font-black font-display tracking-widest">{material.coverTitle}</p>
-        </div>
-
-        {/* IG Post Full */}
-        <div className="bg-background rounded-lg p-4 border border-border/50">
-          <p className="text-xs text-muted-foreground mb-2">IG 貼文文案</p>
-          <p className="text-sm whitespace-pre-wrap leading-relaxed">{material.igPost}</p>
-          <button
-            onClick={() => copyToClipboard(material.igPost || "", "IG 貼文")}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
-          >
-            <Copy className="h-3 w-3" /> 複製完整文案
-          </button>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            onClick={() => window.open(canvaUrl, "_blank")}
-            className="flex-1 min-w-[160px]"
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            開啟 Canva 模板
-          </Button>
-
-          <Button
-            onClick={onSyncToSheets}
-            disabled={isSyncing || isSynced}
-            className="flex-1 min-w-[160px]"
-          >
-            {isSynced ? (
-              <>
-                <Check className="h-4 w-4 mr-2" />
-                已同步戰略庫
-              </>
-            ) : isSyncing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                同步中...
-              </>
-            ) : (
-              <>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                同步至戰略庫
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Quick Copy All */}
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(material.coverTitle, "封面大標")}
-          >
-            <Copy className="h-3 w-3 mr-1" /> 封面大標
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(material.youtubeTitle, "YouTube 標題")}
-          >
-            <Copy className="h-3 w-3 mr-1" /> YouTube 標題
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(material.igStory || "", "限動文案")}
-          >
-            <Copy className="h-3 w-3 mr-1" /> 限動文案
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(material.igPost || "", "IG 貼文")}
-          >
-            <Copy className="h-3 w-3 mr-1" /> IG 貼文
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

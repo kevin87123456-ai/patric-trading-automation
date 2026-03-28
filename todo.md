@@ -15,7 +15,21 @@
 - [x] 前端歷史記錄查詢頁面（複盤標題點擊率）
 - [x] 用戶認證與權限管理（Manus OAuth，僅 Patric 可存取）
 - [x] 響應式設計（桌面與行動裝置支援）
-- [x] Vitest 單元測試（13 tests passed）
+- [x] Vitest 單元測試（36 tests passed）
 - [x] 實作真正的 Google Sheets 寫入（後端呼叫 Sheets API append values）
 - [x] 加上 Patric 專屬存取控制（比對 ownerOpenId 限制僅 owner 可用）
 - [x] 對生成結果增加後端驗證（封面標題 8 字、限動 ≤3 句）
+- [x] 可截圖觀點卡片：盤面分析後產出含關鍵價格、方向、操作觀點的精美卡片，方便截圖發群
+- [x] 公開每日盤面分析頁面：任何人可透過網址瀏覽歷史盤面分析，長期累積內容資產
+- [x] 觀點發佈功能：分析完成後可「發佈」至公開頁面
+- [x] 手機版響應式全面優化（觀點卡片、上傳流程、歷史頁面）
+- [x] 電腦版響應式全面優化（寬螢幕佈局、卡片排版）
+- [x] YouTube 後台數據串接（頻道統計、影片表現、觀看數、訂閱數）
+- [x] YouTube 數據 Dashboard 頁面
+- [x] 資料庫新增 published_analyses 公開分析表
+- [ ] 修復 Home.tsx 幣種/週期輸入框重複顯示問題
+- [ ] PublicArchive/PublicAnalysis 頁面 loading/error/empty state 完善
+- [ ] YouTube 頁面 loading/error/empty state 完善
+- [ ] publish 流程重複發佈保護與 slug 唯一性處理
+- [ ] ViewpointCard 生成結果異常格式防護
+- [x] 公開盤面頁 footer 文字更新為「柯基交易室」

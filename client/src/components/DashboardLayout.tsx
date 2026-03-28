@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { BarChart3, History, LogOut, PanelLeft, Zap } from "lucide-react";
+import { History, LogOut, PanelLeft, Zap, Youtube, Globe } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,6 +30,8 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: Zap, label: "素材生成", path: "/" },
   { icon: History, label: "歷史記錄", path: "/history" },
+  { icon: Youtube, label: "YouTube 數據", path: "/youtube" },
+  { icon: Globe, label: "公開盤面", path: "/archive", external: true },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
