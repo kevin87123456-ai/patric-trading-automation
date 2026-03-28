@@ -160,3 +160,68 @@ describe("prompts module", () => {
     expect(MATERIAL_GENERATION_SYSTEM_PROMPT).toContain("Patric");
   });
 });
+
+describe("AI correction prompts", () => {
+  it("AI_CORRECTION_SYSTEM_PROMPT contains key instructions", async () => {
+    const { AI_CORRECTION_SYSTEM_PROMPT } = await import("../shared/prompts");
+    expect(AI_CORRECTION_SYSTEM_PROMPT).toContain("Patric");
+    expect(AI_CORRECTION_SYSTEM_PROMPT).toContain("direction");
+    expect(AI_CORRECTION_SYSTEM_PROMPT).toContain("confidence");
+    expect(AI_CORRECTION_SYSTEM_PROMPT).toContain("bearish");
+    expect(AI_CORRECTION_SYSTEM_PROMPT).toContain("JSON");
+  });
+
+  it("buildAICorrectionContext includes analysis JSON", async () => {
+    const { buildAICorrectionContext } = await import("../shared/prompts");
+    const analysisJson = JSON.stringify({ coin: "BTC", direction: "bullish", confidence: "medium" });
+    const context = buildAICorrectionContext(analysisJson);
+    expect(context).toContain("BTC");
+    expect(context).toContain("bullish");
+    expect(context).toContain("medium");
+    expect(context).toContain("校正");
+  });
+
+  it("AI_CORRECTION_SYSTEM_PROMPT lists all modifiable fields", async () => {
+    const { AI_CORRECTION_SYSTEM_PROMPT } = await import("../shared/prompts");
+    const fields = ["direction", "confidence", "corgiBoxHigh", "corgiBoxLow", "corgiBox05", "currentPrice", "analysis"];
+    for (const field of fields) {
+      expect(AI_CORRECTION_SYSTEM_PROMPT).toContain(field);
+    }
+  });
+});
+
+describe("analysis.aiChat input validation", () => {
+  it("rejects unauthenticated user", async () => {
+    const { ctx } = createUnauthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.analysis.aiChat({
+        analysisId: 1,
+        messages: [{ role: "user", content: "改成看空" }],
+      })
+    ).rejects.toThrow();
+  });
+
+  it("validates messages array structure", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    // Empty messages should still be valid input (but will fail on DB lookup)
+    await expect(
+      caller.analysis.aiChat({
+        analysisId: 999999,
+        messages: [],
+      })
+    ).rejects.toThrow(); // NOT_FOUND since analysis doesn't exist
+  });
+
+  it("rejects invalid role in messages", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.analysis.aiChat({
+        analysisId: 1,
+        messages: [{ role: "invalid" as any, content: "test" }],
+      })
+    ).rejects.toThrow();
+  });
+});

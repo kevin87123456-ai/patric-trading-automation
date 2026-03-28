@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { History, LogOut, PanelLeft, Zap, Youtube, Globe } from "lucide-react";
+import { History, LogOut, PanelLeft, Zap, Youtube, Eye } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -31,7 +31,7 @@ const menuItems = [
   { icon: Zap, label: "素材生成", path: "/dashboard" },
   { icon: History, label: "歷史記錄", path: "/history" },
   { icon: Youtube, label: "YouTube 數據", path: "/youtube" },
-  { icon: Globe, label: "每日觀點", path: "/archive", external: true },
+  { icon: Eye, label: "每日觀點", path: "/daily-viewpoint" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -192,13 +192,7 @@ function DashboardLayoutContent({
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => {
-                        if ((item as any).external) {
-                          window.open(item.path, '_blank');
-                        } else {
-                          setLocation(item.path);
-                        }
-                      }}
+                      onClick={() => setLocation(item.path)}
                       tooltip={item.label}
                       className={`h-10 transition-all font-normal`}
                     >
@@ -206,11 +200,6 @@ function DashboardLayoutContent({
                         className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
                       />
                       <span>{item.label}</span>
-                      {(item as any).external && (
-                        <svg className="h-3 w-3 ml-auto text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

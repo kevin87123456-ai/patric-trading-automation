@@ -32,9 +32,11 @@ import {
   CHART_ANALYSIS_SYSTEM_PROMPT,
   MATERIAL_GENERATION_SYSTEM_PROMPT,
   VIEWPOINT_CARD_SYSTEM_PROMPT,
+  AI_CORRECTION_SYSTEM_PROMPT,
   buildAnalysisUserPrompt,
   buildMaterialUserPrompt,
   buildViewpointCardPrompt,
+  buildAICorrectionContext,
 } from "../shared/prompts";
 import { appendRowToSheets, readSheetsHistory } from "./sheets";
 
@@ -189,6 +191,118 @@ export const appRouter = router({
           await updateAnalysis(analysis.id, { status: "failed" });
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Analysis failed: ${error.message}` });
         }
+      }),
+
+    aiChat: ownerProcedure
+      .input(z.object({
+        analysisId: z.number(),
+        messages: z.array(z.object({
+          role: z.enum(["system", "user", "assistant"]),
+          content: z.string(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const analysis = await getAnalysisById(input.analysisId);
+        if (!analysis) throw new TRPCError({ code: "NOT_FOUND" });
+        if (analysis.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        if (!analysis.analysisResult) throw new TRPCError({ code: "BAD_REQUEST", message: "分析尚未完成" });
+
+        // Build messages: system prompt + context + conversation history
+        const llmMessages = [
+          { role: "system" as const, content: AI_CORRECTION_SYSTEM_PROMPT },
+          { role: "user" as const, content: buildAICorrectionContext(analysis.analysisResult) },
+          { role: "assistant" as const, content: "已讀取當前分析結果，請告訴我需要修正什麼。" },
+          // Add user conversation (skip the initial system message from frontend)
+          ...input.messages.filter(m => m.role !== "system").map(m => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        ];
+
+        let responseText: string;
+        let appliedChanges: Record<string, any> | null = null;
+
+        try {
+          const result = await invokeLLM({
+            messages: llmMessages,
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "ai_correction",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    reply: { type: "string", description: "回覆文字" },
+                    updated: { type: "boolean", description: "是否有修改分析結果" },
+                    changes: {
+                      type: "object",
+                      description: "變更的欄位（只包含有變更的）",
+                      properties: {
+                        direction: { type: "string" },
+                        confidence: { type: "string" },
+                        corgiBoxHigh: { type: "number" },
+                        corgiBoxLow: { type: "number" },
+                        corgiBox05: { type: "number" },
+                        currentPrice: { type: "number" },
+                        analysis: { type: "string" },
+                      },
+                      required: [],
+                      additionalProperties: false,
+                    },
+                  },
+                  required: ["reply", "updated", "changes"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          const rawContent = result.choices[0]?.message?.content;
+          if (!rawContent || typeof rawContent !== "string") {
+            throw new Error("LLM 未回傳有效內容");
+          }
+
+          const parsed = JSON.parse(rawContent);
+          responseText = parsed.reply || "已處理。";
+
+          if (parsed.updated && parsed.changes && Object.keys(parsed.changes).length > 0) {
+            let currentAnalysis: any = {};
+            try {
+              currentAnalysis = JSON.parse(analysis.analysisResult || "{}");
+            } catch (parseErr) {
+              console.error("[aiChat] Failed to parse existing analysis:", parseErr);
+              currentAnalysis = {};
+            }
+
+            const validFields = ["direction", "confidence", "corgiBoxHigh", "corgiBoxLow", "corgiBox05", "currentPrice", "analysis"];
+            const validDirections = ["bullish", "bearish", "neutral"];
+            const validConfidences = ["high", "medium", "low"];
+
+            for (const [key, value] of Object.entries(parsed.changes)) {
+              if (!validFields.includes(key)) continue;
+              if (key === "direction" && !validDirections.includes(value as string)) continue;
+              if (key === "confidence" && !validConfidences.includes(value as string)) continue;
+              currentAnalysis[key] = value;
+            }
+
+            const newKeyLevelsJson = JSON.stringify(currentAnalysis.keyLevels || []);
+            await updateAnalysis(analysis.id, {
+              analysisResult: JSON.stringify(currentAnalysis),
+              keyLevels: newKeyLevelsJson,
+            });
+
+            appliedChanges = parsed.changes;
+          }
+        } catch (err: any) {
+          console.error("[aiChat] Error:", err?.message || err);
+          responseText = "抱歉，處理你的請求時發生錯誤，請再試一次。";
+        }
+
+        return {
+          response: responseText,
+          appliedChanges,
+        };
       }),
 
     editAnalysis: ownerProcedure

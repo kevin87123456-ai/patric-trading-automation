@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import html2canvas from "html2canvas";
+import { AIChatBox, type Message } from "@/components/AIChatBox";
 
 type AnalysisResult = {
   coin: string;
@@ -63,6 +64,10 @@ export default function Home() {
   const [editingViewpoint, setEditingViewpoint] = useState(false);
   const [editViewpointData, setEditViewpointData] = useState<Partial<ViewpointData>>({});
 
+  // AI Chat states
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [showChat, setShowChat] = useState(false);
+
   const uploadMutation = trpc.analysis.upload.useMutation();
   const analyzeMutation = trpc.analysis.analyze.useMutation();
   const viewpointMutation = trpc.analysis.generateViewpoint.useMutation();
@@ -71,6 +76,7 @@ export default function Home() {
   const syncMutation = trpc.analysis.syncToSheets.useMutation();
   const publishMutation = trpc.analysis.publish.useMutation();
   const editAnalysisMutation = trpc.analysis.editAnalysis.useMutation();
+  const aiChatMutation = trpc.analysis.aiChat.useMutation();
 
   const publishStatusQuery = trpc.analysis.getPublishStatus.useQuery(
     { analysisId: currentAnalysisId! },
@@ -110,6 +116,8 @@ export default function Home() {
       setCurrentAnalysisId(analysis.id);
       setAnalysisResult(null);
       setViewpointData(null);
+      setChatMessages([]);
+      setShowChat(false);
 
       toast.success("圖片上傳成功", { description: "開始分析盤面..." });
 
@@ -251,6 +259,42 @@ export default function Home() {
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
+
+  // AI Chat handler - uses functional setState to avoid stale closure issues
+  const handleAIChatSend = useCallback((content: string) => {
+    if (!currentAnalysisId) return;
+
+    setChatMessages((prev) => {
+      const newMessages: Message[] = [...prev, { role: "user", content }];
+
+      aiChatMutation.mutate(
+        { analysisId: currentAnalysisId, messages: newMessages },
+        {
+          onSuccess: (data) => {
+            setChatMessages((p) => [
+              ...p,
+              { role: "assistant", content: data.response },
+            ]);
+            if (data.appliedChanges) {
+              setAnalysisResult((prevResult) => {
+                if (!prevResult) return prevResult;
+                return { ...prevResult, ...data.appliedChanges };
+              });
+              toast.success("分析結果已更新", { description: "根據你的指示已修正" });
+            }
+          },
+          onError: (error) => {
+            setChatMessages((p) => [
+              ...p,
+              { role: "assistant", content: `錯誤：${error.message}` },
+            ]);
+          },
+        }
+      );
+
+      return newMessages;
+    });
+  }, [currentAnalysisId]);
 
   const materials = materialsMutation.data as any[];
 
@@ -898,6 +942,54 @@ export default function Home() {
             )}
           </TabsContent>
         </Tabs>
+      )}
+
+      {/* AI Correction Chat */}
+      {analysisResult && currentAnalysisId && (
+        <div className="mt-6">
+          {!showChat ? (
+            <Button
+              variant="outline"
+              onClick={() => setShowChat(true)}
+              className="w-full border-zinc-800 text-zinc-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all"
+            >
+              <Sparkles className="h-4 w-4 mr-2 text-emerald-400" />
+              開啟 AI 對話 — 校正分析結果
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                  <h3 className="text-sm font-medium text-white">AI 觀點校正</h3>
+                  <span className="text-[10px] text-zinc-500">如分析結果有誤，直接告訴 AI 調整</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-zinc-500 hover:text-white"
+                  onClick={() => setShowChat(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <AIChatBox
+                messages={chatMessages}
+                onSendMessage={handleAIChatSend}
+                isLoading={aiChatMutation.isPending}
+                placeholder="例如：這張圖應該看空、信心度調高、柯基框上緣改成 95000..."
+                height="400px"
+                emptyStateMessage="告訴我哪裡分析不對，我幫你修正"
+                suggestedPrompts={[
+                  "這張圖應該看空",
+                  "信心度調高",
+                  "方向改成觀望",
+                  "重新分析一次",
+                ]}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
