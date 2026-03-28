@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import ViewpointCard from "@/components/ViewpointCard";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Zap } from "lucide-react";
+import { Loader2, ArrowLeft, Zap, Home } from "lucide-react";
 import { useRoute, Link } from "wouter";
 
 export default function PublicAnalysis() {
@@ -51,9 +51,16 @@ export default function PublicAnalysis() {
               所有分析
             </button>
           </Link>
-          <div className="flex items-center gap-1.5">
-            <Zap className="h-4 w-4 text-emerald-500" />
-            <span className="text-sm font-medium text-zinc-300">Patric Live</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <Zap className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm font-medium text-zinc-300">Patric Live</span>
+            </div>
+            <Link href="/">
+              <Button variant="outline" size="sm" className="h-8 px-2.5">
+                <Home className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
           </div>
         </div>
       </nav>

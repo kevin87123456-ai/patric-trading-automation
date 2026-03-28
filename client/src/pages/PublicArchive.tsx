@@ -9,8 +9,10 @@ import {
   Zap,
   Calendar,
   ChevronRight,
+  Home,
 } from "lucide-react";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 
 function DirectionIcon({ direction }: { direction: string }) {
   if (direction === "bullish") return <TrendingUp className="h-4 w-4 text-emerald-400" />;
@@ -41,6 +43,12 @@ export default function PublicArchive() {
               <p className="text-[11px] text-zinc-500">加密貨幣柯基區間分析紀錄</p>
             </div>
           </div>
+          <Link href="/">
+            <Button variant="outline" size="sm" className="shrink-0">
+              <Home className="h-4 w-4 mr-1.5" />
+              返回主頁
+            </Button>
+          </Link>
         </div>
       </header>
 

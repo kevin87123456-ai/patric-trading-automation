@@ -33,3 +33,4 @@
 - [ ] publish 流程重複發佈保護與 slug 唯一性處理
 - [ ] ViewpointCard 生成結果異常格式防護
 - [x] 公開盤面頁 footer 文字更新為「柯基交易室」
+- [x] 公開盤面頁面加上返回主頁按鈕（PublicArchive + PublicAnalysis）
