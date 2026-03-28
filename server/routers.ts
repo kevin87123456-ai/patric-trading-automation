@@ -610,21 +610,59 @@ export const appRouter = router({
     channelDetails: ownerProcedure
       .input(z.object({ channelId: z.string().optional() }))
       .query(async ({ input }) => {
-        // Use provided channelId or fallback to DB setting
-        let channelId = input.channelId;
-        if (!channelId) {
-          channelId = await getSetting("youtube_channel_id") || "";
-        }
+        const channelId = input.channelId || await getSetting("youtube_channel_id") || "";
         if (!channelId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "請先設定 YouTube 頻道 ID" });
         }
         try {
-          const data = await callDataApi("Youtube/get_channel_details", {
-            query: { id: channelId, hl: "zh-TW" },
+          // Scrape YouTube channel page for stats (Data API doesn't support this channel)
+          const url = `https://www.youtube.com/channel/${channelId}`;
+          const resp = await fetch(url, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+            },
           });
-          return data as any;
+          const html = await resp.text();
+          const match = html.match(/var ytInitialData = (\{.*?\});/);
+          if (!match) throw new Error("無法取得頻道資料");
+          const ytData = JSON.parse(match[1]);
+
+          const meta = ytData?.metadata?.channelMetadataRenderer || {};
+          const headerContent = ytData?.header?.pageHeaderRenderer?.content?.pageHeaderViewModel || {};
+          const metadataRows = headerContent?.metadata?.contentMetadataViewModel?.metadataRows || [];
+
+          let subscribersText = "";
+          let videosText = "";
+          for (const row of metadataRows) {
+            for (const part of row.metadataParts || []) {
+              const text = part?.text?.content || "";
+              if (text.includes("訂閱") || text.includes("subscriber")) subscribersText = text;
+              else if (text.includes("影片") || text.includes("video")) videosText = text;
+            }
+          }
+
+          const subscriberCount = parseInt(subscribersText.replace(/[^0-9]/g, "")) || 0;
+          const videoCount = parseInt(videosText.replace(/[^0-9]/g, "")) || 0;
+          const avatarUrl = meta?.avatar?.thumbnails?.[0]?.url || "";
+          const bannerUrl = ytData?.header?.pageHeaderRenderer?.content?.pageHeaderViewModel?.banner?.imageBannerViewModel?.image?.sources?.[0]?.url || "";
+
+          return {
+            channelId: meta.externalId || channelId,
+            title: meta.title || headerContent?.title?.dynamicTextViewModel?.text?.content || "",
+            description: meta.description || "",
+            handle: meta.vanityChannelUrl?.split("@")[1] || "",
+            stats: {
+              subscribers: subscriberCount,
+              subscribersText,
+              videos: videoCount,
+              videosText,
+            },
+            avatar: [{ url: avatarUrl, width: 900, height: 900 }],
+            banner: bannerUrl ? [{ url: bannerUrl }] : [],
+          };
         } catch (error: any) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `YouTube API 錯誤: ${error.message}` });
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `YouTube 資料取得失敗: ${error.message}` });
         }
       }),
 
@@ -635,10 +673,7 @@ export const appRouter = router({
         cursor: z.string().optional(),
       }))
       .query(async ({ input }) => {
-        let channelId = input.channelId;
-        if (!channelId) {
-          channelId = await getSetting("youtube_channel_id") || "";
-        }
+        const channelId = input.channelId || await getSetting("youtube_channel_id") || "";
         if (!channelId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "請先設定 YouTube 頻道 ID" });
         }
@@ -670,7 +705,6 @@ export const appRouter = router({
         }
       }),
 
-    // Get stored channel ID
     getChannelId: ownerProcedure.query(async () => {
       const channelId = await getSetting("youtube_channel_id");
       return { channelId: channelId || "" };

@@ -85,8 +85,8 @@ export default function YouTube() {
   // Store subscriber count for daily tracking
   useEffect(() => {
     if (channel) {
-      const currentCount = parseSubscriberCount(
-        channel.subscriberCountText || String(channel.subscriberCount || 0)
+      const currentCount = channel.stats?.subscribers || parseSubscriberCount(
+        channel.stats?.subscribersText || String(channel.subscriberCount || 0)
       );
       const storageKey = `patric_yt_sub_${channelId}`;
       const today = new Date().toDateString();
@@ -121,7 +121,7 @@ export default function YouTube() {
   };
 
   const currentSubCount = channel
-    ? parseSubscriberCount(channel.subscriberCountText || String(channel.subscriberCount || 0))
+    ? (channel.stats?.subscribers || parseSubscriberCount(channel.stats?.subscribersText || String(channel.subscriberCount || 0)))
     : 0;
   const todayNewFollowers = prevSubCount !== null && currentSubCount > 0
     ? currentSubCount - prevSubCount
@@ -227,14 +227,14 @@ export default function YouTube() {
                   <p className="text-xs text-zinc-500 mt-1 line-clamp-2">
                     {channel.description?.substring(0, 120)}
                   </p>
-                  {channel.channelHandle && (
+                  {(channel.handle || channel.channelHandle) && (
                     <a
-                      href={`https://youtube.com/${channel.channelHandle}`}
+                      href={`https://youtube.com/@${channel.handle || channel.channelHandle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-zinc-400 hover:text-white transition-colors mt-1 inline-flex items-center gap-1"
                     >
-                      {channel.channelHandle}
+                      @{channel.handle || channel.channelHandle}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
@@ -246,7 +246,7 @@ export default function YouTube() {
                 <div className="bg-zinc-800/40 rounded-xl p-3 text-center">
                   <Users className="h-4 w-4 text-zinc-500 mx-auto mb-1" />
                   <p className="text-lg font-bold font-mono text-white">
-                    {formatNumber(channel.subscriberCountText || channel.subscriberCount)}
+                    {channel.stats?.subscribersText || formatNumber(channel.stats?.subscribers || 0)}
                   </p>
                   <p className="text-[10px] text-zinc-500">訂閱者</p>
                 </div>
@@ -268,14 +268,14 @@ export default function YouTube() {
                 <div className="bg-zinc-800/40 rounded-xl p-3 text-center">
                   <Eye className="h-4 w-4 text-zinc-500 mx-auto mb-1" />
                   <p className="text-lg font-bold font-mono text-white">
-                    {formatNumber(channel.viewCount)}
+                    {formatNumber(channel.stats?.views || channel.viewCount || 0)}
                   </p>
                   <p className="text-[10px] text-zinc-500">總觀看</p>
                 </div>
                 <div className="bg-zinc-800/40 rounded-xl p-3 text-center">
                   <PlayCircle className="h-4 w-4 text-zinc-500 mx-auto mb-1" />
                   <p className="text-lg font-bold font-mono text-white">
-                    {formatNumber(channel.videosCount)}
+                    {formatNumber(channel.stats?.videos || channel.videosCount || 0)}
                   </p>
                   <p className="text-[10px] text-zinc-500">影片數</p>
                 </div>
@@ -311,51 +311,62 @@ export default function YouTube() {
                   <p className="text-zinc-600 text-xs mt-1">{videosQuery.error.message}</p>
                 </CardContent>
               </Card>
-            ) : videos?.data && (videos.data as any[]).length > 0 ? (
+            ) : videos?.contents && (videos.contents as any[]).length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(videos.data as any[]).map((video: any, i: number) => (
-                  <a
-                    key={i}
-                    href={`https://youtube.com/watch?v=${video.videoId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <Card className="border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700 transition-all group overflow-hidden h-full">
-                      <div className="relative aspect-video bg-zinc-800">
-                        {video.thumbnail?.[0]?.url ? (
-                          <img
-                            src={video.thumbnail[video.thumbnail.length - 1]?.url || video.thumbnail[0].url}
-                            alt={video.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <PlayCircle className="h-8 w-8 text-zinc-600" />
-                          </div>
-                        )}
-                        {video.lengthText && (
-                          <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
-                            {video.lengthText}
-                          </span>
-                        )}
-                      </div>
-                      <CardContent className="p-3">
-                        <h3 className="text-sm font-medium text-zinc-200 line-clamp-2 group-hover:text-white transition-colors leading-snug">
-                          {video.title}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-500">
-                          {video.viewCount && (
-                            <span>{formatNumber(video.viewCount)} 次觀看</span>
+                {(videos.contents as any[]).map((item: any, i: number) => {
+                  const video = item.video || item;
+                  const videoId = video.videoId;
+                  const title = video.title || '';
+                  const thumbs = video.thumbnails || video.thumbnail || [];
+                  const thumbUrl = thumbs.length > 0 ? thumbs[thumbs.length - 1]?.url || thumbs[0]?.url : '';
+                  const views = video.stats?.views || video.viewCount;
+                  const lengthSec = video.lengthSeconds;
+                  const lengthText = video.lengthText || (lengthSec ? `${Math.floor(lengthSec/60)}:${String(lengthSec%60).padStart(2,'0')}` : '');
+                  const publishedText = video.publishedTimeText || '';
+                  return (
+                    <a
+                      key={videoId || i}
+                      href={`https://youtube.com/watch?v=${videoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <Card className="border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/60 hover:border-zinc-700 transition-all group overflow-hidden h-full">
+                        <div className="relative aspect-video bg-zinc-800">
+                          {thumbUrl ? (
+                            <img
+                              src={thumbUrl}
+                              alt={title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <PlayCircle className="h-8 w-8 text-zinc-600" />
+                            </div>
                           )}
-                          {video.publishedTimeText && (
-                            <span>{video.publishedTimeText}</span>
+                          {lengthText && (
+                            <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                              {lengthText}
+                            </span>
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </a>
-                ))}
+                        <CardContent className="p-3">
+                          <h3 className="text-sm font-medium text-zinc-200 line-clamp-2 group-hover:text-white transition-colors leading-snug">
+                            {title}
+                          </h3>
+                          <div className="flex items-center gap-3 mt-2 text-[11px] text-zinc-500">
+                            {views != null && (
+                              <span>{formatNumber(views)} 次觀看</span>
+                            )}
+                            {publishedText && (
+                              <span>{publishedText}</span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </a>
+                  );
+                })}
               </div>
             ) : (
               <Card className="border-zinc-800 bg-zinc-900/30">
