@@ -65,3 +65,4 @@
 - [x] Bug：觀點卡片下載失敗，需修復 html2canvas 截圖功能
 - [x] Bug：公開頁面 owner 編輯權限被誤刪，需加回（訪客唯讀、owner 可編輯+上傳）
 - [x] Bug：html-to-image toPng 因跨域 Google Fonts CSS 觸發 SecurityError，需跳過 web font 嵌入
+- [x] Bug：ViewpointCard 的幣種/週期應以用戶上方選擇/手打的為準，而非 AI 回傳的值

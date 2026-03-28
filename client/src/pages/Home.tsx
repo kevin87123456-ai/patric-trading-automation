@@ -128,7 +128,7 @@ export default function Home() {
           const parsed = JSON.parse(result.analysisResult);
           setAnalysisResult(parsed);
           setActiveTab("analysis");
-          toast.success("分析完成", { description: `${parsed.coin} ${parsed.direction === "bullish" ? "偏多" : parsed.direction === "bearish" ? "偏空" : "觀望"}` });
+          toast.success("分析完成", { description: `${coin} ${parsed.direction === "bullish" ? "偏多" : parsed.direction === "bearish" ? "偏空" : "觀望"}` });
         } catch {}
       }
     } catch (error: any) {
@@ -512,7 +512,7 @@ export default function Home() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <h3 className="text-lg font-bold text-white">
-                        {analysisResult.coin} {analysisResult.timeframe}
+                        {coin} {timeframe}
                       </h3>
                       {editingAnalysis ? (
                         <div className="flex gap-1.5">
@@ -687,7 +687,7 @@ export default function Home() {
                           className="h-7"
                           onClick={() =>
                             copyToClipboard(
-                              `${analysisResult.coin} ${analysisResult.timeframe} 觀點\n方向：${analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}\n${viewpointData.operationView}\n\n${viewpointData.summary}`,
+                              `${coin} ${timeframe} 觀點\n方向：${analysisResult.direction === "bullish" ? "看多" : analysisResult.direction === "bearish" ? "看空" : "觀望"}\n${viewpointData.operationView}\n\n${viewpointData.summary}`,
                               "viewpoint-text"
                             )
                           }
@@ -717,7 +717,7 @@ export default function Home() {
                                 },
                               });
                               const link = document.createElement("a");
-                              link.download = `${analysisResult.coin}-${analysisResult.timeframe}-觀點.png`;
+                              link.download = `${coin}-${timeframe}-觀點.png`;
                               link.href = dataUrl;
                               document.body.appendChild(link);
                               link.click();
@@ -825,8 +825,8 @@ export default function Home() {
                   </Card>
                 ) : (
                   <ViewpointCard
-                    coin={analysisResult.coin}
-                    timeframe={analysisResult.timeframe}
+                    coin={coin}
+                    timeframe={timeframe}
                     direction={analysisResult.direction}
                     confidence={analysisResult.confidence}
                     corgiBoxHigh={analysisResult.corgiBoxHigh}
