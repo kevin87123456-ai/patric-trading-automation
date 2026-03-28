@@ -55,3 +55,4 @@
 - [x] 前端：公開盤面 owner 編輯 UI
 - [x] 訪客導航更新：每日觀點分析 + 關於我
 - [x] YouTube 頻道統計改用爬取方式（訂閱數/影片數），影片列表仍用 Data API
+- [x] 修復：營利圖上傳成功但不顯示在公開頁面（uploadPublishedImage 未寫入 DB）

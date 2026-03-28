@@ -382,6 +382,16 @@ export const appRouter = router({
         const ext = input.mimeType.includes("png") ? "png" : "jpg";
         const fileKey = `published/${input.publishedId}/${input.imageType}-${nanoid(6)}.${ext}`;
         const { url } = await storagePut(fileKey, buffer, input.mimeType);
+
+        // Write URL to database
+        const updateData: Record<string, any> = {};
+        if (input.imageType === "profit") {
+          updateData.profitImage = url;
+        } else {
+          updateData.lossImage = url;
+        }
+        await updatePublishedAnalysis(input.publishedId, updateData);
+
         return { url, imageType: input.imageType };
       }),
 
