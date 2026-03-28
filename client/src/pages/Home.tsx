@@ -120,7 +120,17 @@ export default function Home() {
     if (!currentAnalysisId) return;
     try {
       const data = await viewpointMutation.mutateAsync({ analysisId: currentAnalysisId });
-      setViewpointData(data);
+      // Validate viewpoint data format
+      const safeData: ViewpointData = {
+        operationView: typeof data?.operationView === "string" ? data.operationView : "暫無操作建議",
+        priceAlerts: Array.isArray(data?.priceAlerts)
+          ? data.priceAlerts.filter(
+              (a: any) => typeof a?.price === "number" && typeof a?.label === "string" && typeof a?.action === "string"
+            )
+          : [],
+        summary: typeof data?.summary === "string" ? data.summary : "",
+      };
+      setViewpointData(safeData);
       setActiveTab("viewpoint");
       toast.success("觀點卡片已生成");
     } catch (error: any) {

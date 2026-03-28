@@ -14,7 +14,7 @@ import {
   Video,
   Radio,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 
 const DEFAULT_CHANNEL_ID = "UCGnBVKPFRpRK_ky7JkDcBTA"; // Placeholder - user can change
 
@@ -189,7 +189,14 @@ export default function YouTube() {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
               </div>
-            ) : videos?.data ? (
+            ) : videosQuery.error ? (
+              <Card className="border-zinc-800 bg-zinc-900/30">
+                <CardContent className="p-6 text-center">
+                  <p className="text-zinc-400 text-sm">無法載入影片列表</p>
+                  <p className="text-zinc-600 text-xs mt-1">{videosQuery.error.message}</p>
+                </CardContent>
+              </Card>
+            ) : videos?.data && (videos.data as any[]).length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(videos.data as any[]).map((video: any, i: number) => (
                   <a
@@ -237,8 +244,10 @@ export default function YouTube() {
               </div>
             ) : (
               <Card className="border-zinc-800 bg-zinc-900/30">
-                <CardContent className="p-6 text-center">
-                  <p className="text-zinc-400 text-sm">無法載入影片列表</p>
+                <CardContent className="p-8 text-center">
+                  <Video className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
+                  <p className="text-zinc-400 text-sm">此類別暫無影片</p>
+                  <p className="text-zinc-600 text-xs mt-1">試試切換其他分類</p>
                 </CardContent>
               </Card>
             )}

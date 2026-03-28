@@ -27,7 +27,7 @@ function DirectionLabel({ direction }: { direction: string }) {
 }
 
 export default function PublicArchive() {
-  const { data, isLoading } = trpc.public.listAnalyses.useQuery();
+  const { data, isLoading, error } = trpc.public.listAnalyses.useQuery();
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -57,6 +57,14 @@ export default function PublicArchive() {
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="h-16 w-16 rounded-2xl bg-red-900/20 flex items-center justify-center mb-4">
+              <Calendar className="h-8 w-8 text-red-400" />
+            </div>
+            <p className="text-zinc-400 text-sm">載入失敗</p>
+            <p className="text-zinc-600 text-xs mt-1">{error.message}</p>
           </div>
         ) : data && data.length > 0 ? (
           <div className="space-y-3">

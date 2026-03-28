@@ -27,10 +27,10 @@
 - [x] YouTube 後台數據串接（頻道統計、影片表現、觀看數、訂閱數）
 - [x] YouTube 數據 Dashboard 頁面
 - [x] 資料庫新增 published_analyses 公開分析表
-- [ ] 修復 Home.tsx 幣種/週期輸入框重複顯示問題
-- [ ] PublicArchive/PublicAnalysis 頁面 loading/error/empty state 完善
-- [ ] YouTube 頁面 loading/error/empty state 完善
-- [ ] publish 流程重複發佈保護與 slug 唯一性處理
-- [ ] ViewpointCard 生成結果異常格式防護
+- [x] 修復 Home.tsx 幣種/週期輸入框重複顯示問題（改為「其他」按鈕切換）
+- [x] PublicArchive/PublicAnalysis 頁面 loading/error/empty state 完善
+- [x] YouTube 頁面 loading/error/empty state 完善
+- [x] publish 流程重複發佈保護與 slug 唯一性處理（後端已有 getPublishedByAnalysisId 檢查 + nanoid slug）
+- [x] ViewpointCard 生成結果異常格式防護（前端 safeData 驗證）
 - [x] 公開盤面頁 footer 文字更新為「柯基交易室」
 - [x] 公開盤面頁面加上返回主頁按鈕（PublicArchive + PublicAnalysis）
