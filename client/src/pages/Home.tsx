@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 
 type AnalysisResult = {
@@ -703,19 +703,21 @@ export default function Home() {
                             if (!el) return;
                             toast.info("正在產生圖片...");
                             try {
-                              const canvas = await html2canvas(el, {
+                              const dataUrl = await toPng(el, {
                                 backgroundColor: "#09090b",
-                                scale: 3,
-                                useCORS: true,
-                                logging: false,
+                                pixelRatio: 3,
+                                cacheBust: true,
                               });
                               const link = document.createElement("a");
                               link.download = `${analysisResult.coin}-${analysisResult.timeframe}-觀點.png`;
-                              link.href = canvas.toDataURL("image/png");
+                              link.href = dataUrl;
+                              document.body.appendChild(link);
                               link.click();
+                              document.body.removeChild(link);
                               toast.success("圖片已下載");
-                            } catch {
-                              toast.error("圖片產生失敗");
+                            } catch (err) {
+                              console.error("toPng error:", err);
+                              toast.error("圖片產生失敗，請用截圖工具截取");
                             }
                           }}
                         >
