@@ -225,3 +225,95 @@ describe("analysis.aiChat input validation", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("analysis.updateTradeNote", () => {
+  it("validates input schema - requires publishedId and tradeNote", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    // Missing tradeNote should fail
+    await expect(
+      caller.analysis.updateTradeNote({
+        publishedId: 1,
+        tradeNote: undefined as any,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("accepts valid tradeResult enum values", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    // Valid input but non-existent publishedId - returns null
+    const result = await caller.analysis.updateTradeNote({
+      publishedId: 999999,
+      tradeNote: "這筆做對了方向判斷",
+      tradeResult: "profit",
+    });
+    // Non-existent ID returns null from updatePublishedAnalysis
+    expect(result).toBeNull();
+  });
+
+  it("rejects invalid tradeResult enum value", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.analysis.updateTradeNote({
+        publishedId: 1,
+        tradeNote: "test",
+        tradeResult: "invalid" as any,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("allows tradeNote without tradeResult", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.analysis.updateTradeNote({
+      publishedId: 999999,
+      tradeNote: "復盤紀錄：止損位設太近",
+    });
+    expect(result).toBeNull();
+  });
+});
+
+describe("analysis.uploadPublishedImage", () => {
+  it("validates imageType must be profit or loss", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.analysis.uploadPublishedImage({
+        publishedId: 1,
+        imageBase64: "dGVzdA==",
+        mimeType: "image/png",
+        imageType: "invalid" as any,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("accepts profit imageType and returns url", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.analysis.uploadPublishedImage({
+      publishedId: 999999,
+      imageBase64: "dGVzdA==",
+      mimeType: "image/png",
+      imageType: "profit",
+    });
+    expect(result.imageType).toBe("profit");
+    expect(result.url).toBeDefined();
+    expect(typeof result.url).toBe("string");
+  });
+
+  it("accepts loss imageType and returns url", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.analysis.uploadPublishedImage({
+      publishedId: 999999,
+      imageBase64: "dGVzdA==",
+      mimeType: "image/png",
+      imageType: "loss",
+    });
+    expect(result.imageType).toBe("loss");
+    expect(result.url).toBeDefined();
+    expect(typeof result.url).toBe("string");
+  });
+});

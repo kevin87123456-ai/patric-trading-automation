@@ -66,3 +66,7 @@
 - [x] Bug：公開頁面 owner 編輯權限被誤刪，需加回（訪客唯讀、owner 可編輯+上傳）
 - [x] Bug：html-to-image toPng 因跨域 Google Fonts CSS 觸發 SecurityError，需跳過 web font 嵌入
 - [x] Bug：ViewpointCard 的幣種/週期應以用戶上方選擇/手打的為準，而非 AI 回傳的值
+- [x] Bug：公開頁面訪客再次看到編輯按鈕，已確認是用戶自己登入狀態導致（正常行為）
+- [x] Dashboard 每日觀點頁加「返回」按鈕，不要卡在用戶頁面
+- [x] 觀點列表卡片：上傳營利圖顯示綠字「營利」、上傳虧損圖顯示紅字「虧損」
+- [x] 觀點詳情頁加交易紀錄框：營利寫原因、虧損寫復盤

@@ -497,16 +497,31 @@ export const appRouter = router({
         const fileKey = `published/${input.publishedId}/${input.imageType}-${nanoid(6)}.${ext}`;
         const { url } = await storagePut(fileKey, buffer, input.mimeType);
 
-        // Write URL to database
+        // Write URL to database + auto-set tradeResult
         const updateData: Record<string, any> = {};
         if (input.imageType === "profit") {
           updateData.profitImage = url;
+          updateData.tradeResult = "profit";
         } else {
           updateData.lossImage = url;
+          updateData.tradeResult = "loss";
         }
         await updatePublishedAnalysis(input.publishedId, updateData);
 
         return { url, imageType: input.imageType };
+      }),
+
+    // Update trade note (profit reason / loss review)
+    updateTradeNote: ownerProcedure
+      .input(z.object({
+        publishedId: z.number(),
+        tradeNote: z.string(),
+        tradeResult: z.enum(["profit", "loss"]).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const updateData: Record<string, any> = { tradeNote: input.tradeNote };
+        if (input.tradeResult) updateData.tradeResult = input.tradeResult;
+        return await updatePublishedAnalysis(input.publishedId, updateData);
       }),
 
     getPublishStatus: ownerProcedure
@@ -530,6 +545,8 @@ export const appRouter = router({
           summary: published.summary,
           profitImage: (published as any).profitImage || null,
           lossImage: (published as any).lossImage || null,
+          tradeResult: (published as any).tradeResult || null,
+          tradeNote: (published as any).tradeNote || null,
           publishedAt: published.publishedAt,
         };
       }),
@@ -674,6 +691,8 @@ export const appRouter = router({
           ...published,
           profitImage: (published as any).profitImage || null,
           lossImage: (published as any).lossImage || null,
+          tradeResult: (published as any).tradeResult || null,
+          tradeNote: (published as any).tradeNote || null,
         };
       }),
 

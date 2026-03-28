@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `published_analyses` ADD `tradeResult` enum('profit','loss'); ALTER TABLE `published_analyses` ADD `tradeNote` text;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34b7LeGX8Au1x3g.root --database oM6VVHUGjo7Yjz9CvRDzsu --execute ALTER TABLE `published_analyses` ADD `tradeResult` enum('profit','loss'); ALTER TABLE `published_analyses` ADD `tradeNote` text;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2185
+}
