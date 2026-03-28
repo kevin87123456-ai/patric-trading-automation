@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import ViewpointCard from "@/components/ViewpointCard";
 import {
   Loader2,
   TrendingUp,
@@ -19,9 +20,11 @@ import {
   Upload,
   ImageIcon,
   FileText,
+  Download,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { toPng } from "html-to-image";
 
 function DirectionIcon({ direction }: { direction: string }) {
   if (direction === "bullish") return <TrendingUp className="h-4 w-4 text-emerald-400" />;
@@ -53,20 +56,17 @@ function TradeResultBadge({ result }: { result: string | null }) {
   return null;
 }
 
-// Detail view for a single published analysis
 function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) {
-  const { data, isLoading, error, refetch } = trpc.public.getAnalysis.useQuery(
-    { slug },
-    { enabled: !!slug }
-  );
+  const { data, isLoading, error, refetch } = trpc.public.getAnalysis.useQuery({ slug });
 
   const [tradeNote, setTradeNote] = useState("");
   const [noteInitialized, setNoteInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
-  // Image upload
   const profitInputRef = useRef<HTMLInputElement>(null);
   const lossInputRef = useRef<HTMLInputElement>(null);
+  const viewpointCardRef = useRef<HTMLDivElement>(null);
 
   const uploadImageMutation = trpc.analysis.uploadPublishedImage.useMutation({
     onSuccess: (res) => {
@@ -88,7 +88,6 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
     },
   });
 
-  // Initialize note from data via useEffect to avoid render-phase setState
   useEffect(() => {
     if (data && !noteInitialized) {
       setTradeNote((data as any).tradeNote || "");
@@ -107,9 +106,9 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
       const base64 = (reader.result as string).split(",")[1];
       uploadImageMutation.mutate({
         publishedId: data.id,
-        imageBase64: base64,
-        mimeType: file.type || "image/png",
         imageType,
+        imageBase64: base64,
+        mimeType: file.type as any,
       });
     };
     reader.readAsDataURL(file);
@@ -118,13 +117,66 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
   function saveTradeNote() {
     if (!data) return;
     setSaving(true);
-    const tradeResult = (data as any).tradeResult || ((data as any).profitImage ? "profit" : (data as any).lossImage ? "loss" : undefined);
+    const tradeResult = (data as any).tradeResult as string | null;
     updateTradeNoteMutation.mutate({
       publishedId: data.id,
       tradeNote,
-      tradeResult,
+      ...(tradeResult ? { tradeResult: tradeResult as "profit" | "loss" } : {}),
     });
   }
+
+  // Download viewpoint card as image - mobile compatible
+  const handleDownloadCard = useCallback(async () => {
+    const el = viewpointCardRef.current;
+    if (!el || !data) return;
+    setDownloading(true);
+    toast.info("正在產生圖片...");
+    try {
+      const dataUrl = await toPng(el, {
+        backgroundColor: "#09090b",
+        pixelRatio: 3,
+        cacheBust: true,
+        skipFonts: true,
+        filter: (node: HTMLElement) => {
+          if (node.tagName === "LINK" && (node as HTMLLinkElement).rel === "stylesheet") return false;
+          return true;
+        },
+      });
+
+      // Mobile-compatible download: use blob + object URL
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Try using a link with download attribute
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${data.coin}-${data.timeframe}-觀點.png`;
+      link.style.display = "none";
+      document.body.appendChild(link);
+
+      // For iOS Safari, we need to open in new tab as fallback
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        // iOS: open image in new tab for long-press save
+        window.open(blobUrl, "_blank");
+        toast.success("圖片已開啟，請長按圖片儲存");
+      } else {
+        link.click();
+        toast.success("圖片已下載");
+      }
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    } catch (err) {
+      console.error("toPng error:", err);
+      toast.error("圖片產生失敗，請用截圖工具截取");
+    } finally {
+      setDownloading(false);
+    }
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -150,6 +202,9 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
   const isProfit = tradeResult === "profit";
   const isLoss = tradeResult === "loss";
 
+  let priceAlerts: any[] = [];
+  try { priceAlerts = JSON.parse(data.priceAlerts || "[]"); } catch {}
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* Back button + header */}
@@ -166,6 +221,41 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
           <DirectionLabel direction={data.direction} />
           <TradeResultBadge result={tradeResult} />
         </div>
+      </div>
+
+      {/* Viewpoint Card with download */}
+      <div className="space-y-3">
+        <div ref={viewpointCardRef}>
+          <ViewpointCard
+            coin={data.coin}
+            timeframe={data.timeframe}
+            direction={data.direction}
+            confidence={data.confidence}
+            corgiBoxHigh={data.corgiBoxHigh}
+            corgiBoxLow={data.corgiBoxLow}
+            corgiBox05={data.corgiBox05}
+            currentPrice={data.currentPrice}
+            analysisText={data.analysisText}
+            operationView={data.operationView}
+            priceAlerts={priceAlerts}
+            publishedAt={data.publishedAt as unknown as string}
+            summary={(data as any).summary}
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-9 text-xs gap-2 border-zinc-700 text-zinc-400 hover:text-white hover:border-emerald-500/50"
+          onClick={handleDownloadCard}
+          disabled={downloading}
+        >
+          {downloading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          下載觀點卡片
+        </Button>
       </div>
 
       {/* Chart image */}
@@ -305,7 +395,6 @@ export default function DashboardArchive() {
   const [, setLocation] = useLocation();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 
-  // If viewing detail
   if (selectedSlug) {
     return <AnalysisDetail slug={selectedSlug} onBack={() => setSelectedSlug(null)} />;
   }

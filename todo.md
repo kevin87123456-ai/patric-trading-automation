@@ -73,3 +73,6 @@
 - [x] 全站「營利」改為「盈利」（錯字修正）
 - [x] 公開頁面（PublicArchive/PublicAnalysis）顯示盈利/虧損標籤
 - [x] 公開頁面顯示交易紀錄內容
+- [x] Bug：手機網頁無法下載觀點卡片圖片（html-to-image 手機相容性）
+- [x] Dashboard 每日觀點詳情頁加回觀點卡片顯示
+- [x] 觀點卡片下載按鈕移到 Dashboard 每日觀點（僅 owner 可用）

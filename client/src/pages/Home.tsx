@@ -709,20 +709,28 @@ export default function Home() {
                                 cacheBust: true,
                                 skipFonts: true,
                                 filter: (node: HTMLElement) => {
-                                  // Skip cross-origin stylesheet links that cause CORS errors
-                                  if (node.tagName === "LINK" && (node as HTMLLinkElement).rel === "stylesheet") {
-                                    return false;
-                                  }
+                                  if (node.tagName === "LINK" && (node as HTMLLinkElement).rel === "stylesheet") return false;
                                   return true;
                                 },
                               });
+                              // Mobile-compatible download
+                              const resp = await fetch(dataUrl);
+                              const blob = await resp.blob();
+                              const blobUrl = URL.createObjectURL(blob);
                               const link = document.createElement("a");
+                              link.href = blobUrl;
                               link.download = `${coin}-${timeframe}-觀點.png`;
-                              link.href = dataUrl;
+                              link.style.display = "none";
                               document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                              toast.success("圖片已下載");
+                              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                              if (isIOS) {
+                                window.open(blobUrl, "_blank");
+                                toast.success("圖片已開啟，請長按圖片儲存");
+                              } else {
+                                link.click();
+                                toast.success("圖片已下載");
+                              }
+                              setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(blobUrl); }, 1000);
                             } catch (err) {
                               console.error("toPng error:", err);
                               toast.error("圖片產生失敗，請用截圖工具截取");
