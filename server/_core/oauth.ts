@@ -51,10 +51,10 @@ export function registerOAuthRoutes(app: Express) {
       });
 
       // 重定向回設定頁面
-      res.redirect(302, "/dashboard/settings?github=success");
+      res.redirect(302, "/settings?github=success");
     } catch (error) {
       console.error("[GitHub OAuth] Callback failed", error);
-      res.redirect(302, "/dashboard/settings?github=error");
+      res.redirect(302, "/settings?github=error");
     }
   });
 

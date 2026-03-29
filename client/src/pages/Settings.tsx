@@ -13,31 +13,10 @@ export default function Settings() {
   const isAuthorized = gitHubStatusQuery.data?.isAuthorized || false;
   const gitHubUsername = gitHubStatusQuery.data?.username || null;
 
-  const handleDownloadZip = async () => {
-    toast.info("準備下載源代碼...");
-    try {
-      const response = await fetch("/api/project/download-zip", {
-        method: "GET",
-      });
-      
-      if (!response.ok) {
-        toast.info("請在 Management UI 的 More menu 點擊 'Download as ZIP'");
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "patric-live-dashboard.zip";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success("源代碼已下載");
-    } catch (err) {
-      toast.info("請在 Management UI 的 More menu 點擊 'Download as ZIP'");
-    }
+  const handleDownloadZip = () => {
+    toast.info("正在打開 Management UI...");
+    // 下載功能由 Manus 平台提供，程式中沒有實作，指引用戶到 Management UI
+    toast.info("請在右上角 Management UI 的 More menu（⋯）選擇 'Download as ZIP'");
   };
 
   const handleGitHubAuthorize = () => {
