@@ -55,37 +55,10 @@ export default function DashboardLayout({
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
+  // 不在此層檢查登入狀態 - 由 App.tsx 的路由層控制
+  // 這樣可以避免 /settings 等路由被誤判為未登入
   if (loading) {
     return <DashboardLayoutSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Zap className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-center font-display">
-              Patric 直播戰略系統
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              登入後即可使用盤面分析、素材生成與戰略庫同步功能
-            </p>
-          </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            登入系統
-          </Button>
-        </div>
-      </div>
-    );
   }
 
   return (

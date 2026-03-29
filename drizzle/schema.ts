@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, index, boolean, decimal, bigint } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -83,6 +83,83 @@ export const publishedAnalyses = mysqlTable("published_analyses", {
 
 export type PublishedAnalysis = typeof publishedAnalyses.$inferSelect;
 export type InsertPublishedAnalysis = typeof publishedAnalyses.$inferInsert;
+
+// 市場掃描記錄表
+export const marketScans = mysqlTable("market_scans", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  timeframe: varchar("timeframe", { length: 10 }).notNull(),
+  direction: mysqlEnum("direction", ["long", "short", "neutral"]).notNull(),
+  confidence: mysqlEnum("confidence", ["high", "medium", "low"]).notNull(),
+  
+  // 柯基框數據
+  corgiBoxHigh: decimal("corgiBoxHigh", { precision: 20, scale: 8 }).notNull(),
+  corgiBoxLow: decimal("corgiBoxLow", { precision: 20, scale: 8 }).notNull(),
+  corgiBoxMiddle: decimal("corgiBoxMiddle", { precision: 20, scale: 8 }).notNull(),
+  currentPrice: decimal("currentPrice", { precision: 20, scale: 8 }).notNull(),
+  
+  // 分析內容
+  analysis: text("analysis").notNull(),
+  viewpoint: text("viewpoint").notNull(),
+  bottomText: text("bottomText"),
+  
+  // 狀態
+  published: boolean("published").default(false).notNull(),
+  publishedAt: bigint("publishedAt", { mode: "number" }),
+  imageUrl: varchar("imageUrl", { length: 500 }),
+  
+  // 時間戳
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  symbolTimeframeIdx: index("idx_symbol_timeframe").on(table.symbol, table.timeframe),
+  createdAtIdx: index("idx_created_at").on(table.createdAt),
+  publishedIdx: index("idx_published").on(table.published),
+}));
+
+export type MarketScan = typeof marketScans.$inferSelect;
+export type InsertMarketScan = typeof marketScans.$inferInsert;
+
+// 關鍵價格提醒表
+export const marketScanKeyLevels = mysqlTable("market_scan_key_levels", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  scanId: varchar("scanId", { length: 255 }).notNull(),
+  price: decimal("price", { precision: 20, scale: 8 }).notNull(),
+  label: varchar("label", { length: 100 }).notNull(),
+  note: text("note").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  scanIdIdx: index("idx_scan_id").on(table.scanId),
+}));
+
+export type MarketScanKeyLevel = typeof marketScanKeyLevels.$inferSelect;
+export type InsertMarketScanKeyLevel = typeof marketScanKeyLevels.$inferInsert;
+
+// 掃描任務日誌表
+export const scanJobLogs = mysqlTable("scan_job_logs", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  jobType: varchar("jobType", { length: 50 }).notNull(), // 'hourly_scan' 或 'daily_report'
+  status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).notNull(),
+  
+  // 掃描的幣種
+  symbols: json("symbols").$type<string[]>().notNull(),
+  timeframe: varchar("timeframe", { length: 10 }).notNull(),
+  
+  // 結果
+  scansCreated: int("scansCreated").default(0).notNull(),
+  scansPublished: int("scansPublished").default(0).notNull(),
+  errorMessage: text("errorMessage"),
+  
+  // 時間戳
+  scheduledAt: bigint("scheduledAt", { mode: "number" }).notNull(),
+  startedAt: bigint("startedAt", { mode: "number" }),
+  completedAt: bigint("completedAt", { mode: "number" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScanJobLog = typeof scanJobLogs.$inferSelect;
+export type InsertScanJobLog = typeof scanJobLogs.$inferInsert;
 
 // 網站設定（owner 可編輯的個人介紹等）
 export const siteSettings = mysqlTable("site_settings", {

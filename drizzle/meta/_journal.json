@@ -57,6 +57,13 @@
       "when": 1774806112789,
       "tag": "0007_unique_grey_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1774812944661,
+      "tag": "0008_curious_the_hood",
+      "breakpoints": true
     }
   ]
 }

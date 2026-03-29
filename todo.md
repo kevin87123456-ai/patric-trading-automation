@@ -81,3 +81,63 @@
 - [x] 實作 GitHub OAuth 授權：後端儲存 token、前端授權按鈕和狀態顯示
 - [x] Bug：下載按鈕無法產生有效 ZIP（檔案無法解壓）
 - [x] Bug：GitHub 授權按鈕點了變黑画面（授權流程卡住）
+
+
+## 交易自動化系統開發（新功能）
+
+### 第一階段：修復基礎問題
+- [x] 修復設定頁面路由問題（/settings 被重定向到 /archive）
+- [ ] 移除 DashboardLayout 中的登入檢查邏輯
+
+### 第二階段：Bitunix API 集成
+- [x] 建立 Bitunix API 客戶端模組 (server/services/bitunix.ts)
+- [x] 實現獲取 K 線數據的函數（1H、4H）
+- [x] 實現獲取最新價格的函數
+- [x] 建立 API 錯誤處理和重試邏輯
+- [ ] 添加 Bitunix API 密鑰到環境變數
+
+### 第三階段：柯基框計算邏輯
+- [x] 實現次高、次低計算 (server/services/corgiBox.ts)
+- [x] 實現 0.5 中線計算
+- [x] 實現撐壓轉變判斷邏輯
+- [x] 實現做多/做空/中性判斷
+- [ ] 添加單元測試
+
+### 第四階段：自動化定時任務
+- [ ] 建立定時任務系統 (server/jobs/marketScan.ts)
+- [ ] 實現每小時巡視邏輯（08:00-02:00 台灣時間）
+- [ ] 實現每天 08:00 早盤日報邏輯
+- [ ] 建立任務日誌記錄
+- [ ] 建立任務監控端點
+
+### 第五階段：小卡生成和發布
+- [x] 設計小卡 UI 模板 (client/src/components/TradeViewpointCard.tsx)
+- [ ] 實現小卡圖片生成 (server/services/cardGenerator.ts)
+- [ ] 實現小卡發布到 IG Reels 邏輯
+- [ ] 實現小卡發布到 YouTube Shorts 邏輯
+- [ ] 實現小卡發布到 Google Sheets 邏輯
+- [ ] 建立發布隊列系統
+
+### 第六階段：「自動詢盤紀錄」頁面
+- [x] 建立資料庫表結構 (market_scans, market_scan_key_levels, scan_job_logs)
+- [ ] 修復 db.market-scan.ts 的 TypeScript 錯誤
+- [ ] 實現後端 API 端點 (trpc.market.getScanHistory)
+- [ ] 建立前端頁面 (client/src/pages/ScanRecords.tsx)
+- [ ] 實現分析紀錄展示
+- [ ] 實現成果觀察統計
+- [ ] 添加篩選和排序功能
+
+### 第七階段：測試和部署
+- [ ] 編寫集成測試
+- [ ] 測試 Bitunix API 連接
+- [ ] 測試柯基框計算邏輯
+- [ ] 測試定時任務執行
+- [ ] 測試小卡生成
+- [ ] 測試發布流程
+- [ ] 性能測試和優化
+
+### 第八階段：交付
+- [ ] 部署到生產環境
+- [ ] 驗證所有功能正常運行
+- [ ] 建立使用文檔
+- [ ] 交付給用戶

@@ -1,0 +1,896 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "id": "f9d1c6bc-decc-4d1f-8174-9e6f3aa0fa3f",
+  "prevId": "80a50e8f-4e72-44d7-9e58-e8d15f44be4c",
+  "tables": {
+    "analyses": {
+      "name": "analyses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "coin": {
+          "name": "coin",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timeframe": {
+          "name": "timeframe",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "analysisResult": {
+          "name": "analysisResult",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "keyLevels": {
+          "name": "keyLevels",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('pending','analyzing','completed','failed')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "analyses_id": {
+          "name": "analyses_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "generated_materials": {
+      "name": "generated_materials",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "analysisId": {
+          "name": "analysisId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "coverTitle": {
+          "name": "coverTitle",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "youtubeTitle": {
+          "name": "youtubeTitle",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "igPost": {
+          "name": "igPost",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "igStory": {
+          "name": "igStory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isSelected": {
+          "name": "isSelected",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "syncedToSheets": {
+          "name": "syncedToSheets",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "generated_materials_id": {
+          "name": "generated_materials_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "market_scan_key_levels": {
+      "name": "market_scan_key_levels",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scanId": {
+          "name": "scanId",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "price": {
+          "name": "price",
+          "type": "decimal(20,8)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "idx_scan_id": {
+          "name": "idx_scan_id",
+          "columns": [
+            "scanId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "market_scan_key_levels_id": {
+          "name": "market_scan_key_levels_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "market_scans": {
+      "name": "market_scans",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timeframe": {
+          "name": "timeframe",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "direction": {
+          "name": "direction",
+          "type": "enum('long','short','neutral')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "enum('high','medium','low')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corgiBoxHigh": {
+          "name": "corgiBoxHigh",
+          "type": "decimal(20,8)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corgiBoxLow": {
+          "name": "corgiBoxLow",
+          "type": "decimal(20,8)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corgiBoxMiddle": {
+          "name": "corgiBoxMiddle",
+          "type": "decimal(20,8)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentPrice": {
+          "name": "currentPrice",
+          "type": "decimal(20,8)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "analysis": {
+          "name": "analysis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "viewpoint": {
+          "name": "viewpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bottomText": {
+          "name": "bottomText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "published": {
+          "name": "published",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "idx_symbol_timeframe": {
+          "name": "idx_symbol_timeframe",
+          "columns": [
+            "symbol",
+            "timeframe"
+          ],
+          "isUnique": false
+        },
+        "idx_created_at": {
+          "name": "idx_created_at",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        },
+        "idx_published": {
+          "name": "idx_published",
+          "columns": [
+            "published"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "market_scans_id": {
+          "name": "market_scans_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "published_analyses": {
+      "name": "published_analyses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "analysisId": {
+          "name": "analysisId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "coin": {
+          "name": "coin",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timeframe": {
+          "name": "timeframe",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "direction": {
+          "name": "direction",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corgiBoxHigh": {
+          "name": "corgiBoxHigh",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corgiBoxLow": {
+          "name": "corgiBoxLow",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corgiBox05": {
+          "name": "corgiBox05",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentPrice": {
+          "name": "currentPrice",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "keyLevelsJson": {
+          "name": "keyLevelsJson",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "analysisText": {
+          "name": "analysisText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operationView": {
+          "name": "operationView",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "priceAlerts": {
+          "name": "priceAlerts",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "coverTitle": {
+          "name": "coverTitle",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "profitImage": {
+          "name": "profitImage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lossImage": {
+          "name": "lossImage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tradeResult": {
+          "name": "tradeResult",
+          "type": "enum('profit','loss')",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tradeNote": {
+          "name": "tradeNote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "published_analyses_id": {
+          "name": "published_analyses_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "published_analyses_slug_unique": {
+          "name": "published_analyses_slug_unique",
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "scan_job_logs": {
+      "name": "scan_job_logs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "jobType": {
+          "name": "jobType",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('pending','running','completed','failed')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "symbols": {
+          "name": "symbols",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timeframe": {
+          "name": "timeframe",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scansCreated": {
+          "name": "scansCreated",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "scansPublished": {
+          "name": "scansPublished",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "errorMessage": {
+          "name": "errorMessage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scheduledAt": {
+          "name": "scheduledAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "startedAt": {
+          "name": "startedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "completedAt": {
+          "name": "completedAt",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "scan_job_logs_id": {
+          "name": "scan_job_logs_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "site_settings": {
+      "name": "site_settings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "settingKey": {
+          "name": "settingKey",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "settingValue": {
+          "name": "settingValue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "site_settings_id": {
+          "name": "site_settings_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "site_settings_settingKey_unique": {
+          "name": "site_settings_settingKey_unique",
+          "columns": [
+            "settingKey"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "openId": {
+          "name": "openId",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "loginMethod": {
+          "name": "loginMethod",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "enum('user','admin')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'user'"
+        },
+        "githubToken": {
+          "name": "githubToken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "githubUsername": {
+          "name": "githubUsername",
+          "type": "varchar(39)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "githubAuthorizedAt": {
+          "name": "githubAuthorizedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        },
+        "lastSignedIn": {
+          "name": "lastSignedIn",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "users_id": {
+          "name": "users_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "users_openId_unique": {
+          "name": "users_openId_unique",
+          "columns": [
+            "openId"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    }
+  },
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "tables": {},
+    "indexes": {}
+  }
+}
