@@ -143,33 +143,30 @@ function AnalysisDetail({ slug, onBack }: { slug: string; onBack: () => void }) 
         },
       });
 
-      // Mobile-compatible download: use blob + object URL
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-
-      // Try using a link with download attribute
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `${data.coin}-${data.timeframe}-觀點.png`;
-      link.style.display = "none";
-      document.body.appendChild(link);
-
-      // For iOS Safari, we need to open in new tab as fallback
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        // iOS: open image in new tab for long-press save
-        window.open(blobUrl, "_blank");
-        toast.success("圖片已開啟，請長按圖片儲存");
+      const isAndroid = /Android/.test(navigator.userAgent);
+
+      if (isIOS || isAndroid) {
+        // Mobile: 直接開新分頁顯示圖片，讓用戶長按儲存
+        window.open(dataUrl, "_blank");
+        toast.success("圖片已開啟，請長按儲存");
       } else {
+        // Desktop: 直接下載
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = `${data.coin}-${data.timeframe}-觀點.png`;
+        link.style.display = "none";
+        document.body.appendChild(link);
         link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 1000);
         toast.success("圖片已下載");
       }
-
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      }, 1000);
     } catch (err) {
       console.error("toPng error:", err);
       toast.error("圖片產生失敗，請用截圖工具截取");

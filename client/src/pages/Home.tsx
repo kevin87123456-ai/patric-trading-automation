@@ -713,24 +713,24 @@ export default function Home() {
                                   return true;
                                 },
                               });
-                              // Mobile-compatible download
-                              const resp = await fetch(dataUrl);
-                              const blob = await resp.blob();
-                              const blobUrl = URL.createObjectURL(blob);
-                              const link = document.createElement("a");
-                              link.href = blobUrl;
-                              link.download = `${coin}-${timeframe}-觀點.png`;
-                              link.style.display = "none";
-                              document.body.appendChild(link);
                               const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                              if (isIOS) {
-                                window.open(blobUrl, "_blank");
-                                toast.success("圖片已開啟，請長按圖片儲存");
+                              const isAndroid = /Android/.test(navigator.userAgent);
+                              if (isIOS || isAndroid) {
+                                window.open(dataUrl, "_blank");
+                                toast.success("圖片已開啟，請長按儲存");
                               } else {
+                                const resp = await fetch(dataUrl);
+                                const blob = await resp.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const link = document.createElement("a");
+                                link.href = blobUrl;
+                                link.download = `${coin}-${timeframe}-觀點.png`;
+                                link.style.display = "none";
+                                document.body.appendChild(link);
                                 link.click();
+                                setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(blobUrl); }, 1000);
                                 toast.success("圖片已下載");
                               }
-                              setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(blobUrl); }, 1000);
                             } catch (err) {
                               console.error("toPng error:", err);
                               toast.error("圖片產生失敗，請用截圖工具截取");
