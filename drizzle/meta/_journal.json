@@ -50,6 +50,13 @@
       "when": 1774733352943,
       "tag": "0006_loving_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1774806112789,
+      "tag": "0007_unique_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

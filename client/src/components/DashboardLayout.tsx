@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { History, LogOut, PanelLeft, Zap, Youtube, Eye } from "lucide-react";
+import { History, LogOut, PanelLeft, Zap, Youtube, Eye, Settings as SettingsIcon } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -32,6 +32,7 @@ const menuItems = [
   { icon: History, label: "歷史記錄", path: "/history" },
   { icon: Youtube, label: "YouTube 數據", path: "/youtube" },
   { icon: Eye, label: "每日觀點", path: "/daily-viewpoint" },
+  { icon: SettingsIcon, label: "設定", path: "/settings" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -227,6 +228,13 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => setLocation("/settings")}
+                  className="cursor-pointer"
+                >
+                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  <span>設定</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"

@@ -88,6 +88,17 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function updateUser(openId: string, data: Partial<InsertUser>) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update user: database not available");
+    return undefined;
+  }
+
+  await db.update(users).set(data).where(eq(users.openId, openId));
+  return getUserByOpenId(openId);
+}
+
 // ===== Analysis CRUD =====
 
 export async function createAnalysis(data: InsertAnalysis) {

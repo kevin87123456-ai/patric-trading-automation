@@ -862,6 +862,16 @@ export const appRouter = router({
       return { url: `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/edit`, id: SHEETS_ID };
     }),
   }),
+
+  github: router({
+    getStatus: protectedProcedure.query(async ({ ctx }) => {
+      return {
+        isAuthorized: !!ctx.user.githubToken,
+        username: ctx.user.githubUsername || null,
+        authorizedAt: ctx.user.githubAuthorizedAt || null,
+      };
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

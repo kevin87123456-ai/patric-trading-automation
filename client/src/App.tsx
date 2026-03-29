@@ -7,6 +7,7 @@ import DashboardArchive from "./pages/DashboardArchive";
 import PublicArchive from "./pages/PublicArchive";
 import PublicAnalysis from "./pages/PublicAnalysis";
 import AboutPage from "./pages/AboutPage";
+import Settings from "./pages/Settings";
 import { Toaster } from "./components/ui/sonner";
 import { trpc } from "@/lib/trpc";
 
@@ -18,6 +19,7 @@ function PrivateApp() {
         <Route path="/history" component={HistoryPage} />
         <Route path="/youtube" component={YouTube} />
         <Route path="/daily-viewpoint" component={DashboardArchive} />
+        <Route path="/settings" component={Settings} />
         <Route>
           <div className="flex items-center justify-center py-20">
             <p className="text-zinc-400">頁面不存在</p>
@@ -52,6 +54,7 @@ function App() {
         <Route path="/history" component={PrivateApp} />
         <Route path="/youtube" component={PrivateApp} />
         <Route path="/daily-viewpoint" component={PrivateApp} />
+        <Route path="/settings" component={PrivateApp} />
 
         {/* Catch-all: redirect to archive for visitors */}
         <Route>

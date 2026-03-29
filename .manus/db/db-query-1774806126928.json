@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `users` ADD `githubToken` text;\nALTER TABLE `users` ADD `githubUsername` varchar(39);\nALTER TABLE `users` ADD `githubAuthorizedAt` timestamp;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34b7LeGX8Au1x3g.root --database oM6VVHUGjo7Yjz9CvRDzsu --execute ALTER TABLE `users` ADD `githubToken` text;\nALTER TABLE `users` ADD `githubUsername` varchar(39);\nALTER TABLE `users` ADD `githubAuthorizedAt` timestamp;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2602
+}
