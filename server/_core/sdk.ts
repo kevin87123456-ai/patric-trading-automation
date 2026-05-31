@@ -268,6 +268,22 @@ class SDKServer {
 
     const sessionUserId = session.openId;
     const signedInAt = new Date();
+
+    // Handle Manus cron cookie (openId starts with 'cron_')
+    if (sessionUserId.startsWith('cron_')) {
+      // Upsert cron user in DB with user role
+      await db.upsertUser({
+        openId: sessionUserId,
+        name: session.name || 'Manus Cron',
+        email: null,
+        loginMethod: 'cron',
+        lastSignedIn: signedInAt,
+      });
+      const cronUser = await db.getUserByOpenId(sessionUserId);
+      if (!cronUser) throw ForbiddenError('Cron user not found');
+      return cronUser;
+    }
+
     let user = await db.getUserByOpenId(sessionUserId);
 
     // If user not in DB, sync from OAuth server automatically
