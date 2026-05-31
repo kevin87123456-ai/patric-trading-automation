@@ -46,6 +46,14 @@ async function startServer() {
       createContext,
     })
   );
+  // tRPC API for scheduled tasks (Manus cron cookie requires path to contain "scheduled")
+  app.use(
+    "/api/scheduled/trpc",
+    createExpressMiddleware({
+      router: appRouter,
+      createContext,
+    })
+  );
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
