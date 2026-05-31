@@ -187,6 +187,10 @@ async function runCorgiAnalysis() {
 export function registerScheduledRoutes(app: Express) {
   // Corgi box analysis - called by Manus scheduled task
   app.post("/api/scheduled/corgiAnalysis", async (_req: Request, res: Response) => {
+    // Prevent CDN caching
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     try {
       console.log("[scheduled] Starting corgi analysis...");
       const result = await runCorgiAnalysis();
