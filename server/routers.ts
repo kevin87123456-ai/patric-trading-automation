@@ -876,9 +876,13 @@ export const appRouter = router({
 
   // ===== Scheduled Tasks (Manus cron cookie) =====
   scheduled: router({
-    corgiAnalysis: adminProcedure
+    corgiAnalysis: publicProcedure
       .input(z.null().optional())
-      .mutation(async () => {
+      .mutation(async ({ ctx }) => {
+        // Verify this is called by Manus cron cookie (openId starts with 'cron_')
+        if (!ctx.user || !ctx.user.openId.startsWith('cron_')) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only Manus cron cookie can call this endpoint" });
+        }
         const BINANCE_API = "https://api.binance.com/api/v3/klines";
         const coins = [
           { symbol: "BTCUSDT", name: "BTC" },
