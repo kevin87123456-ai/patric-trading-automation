@@ -22,6 +22,12 @@ export async function setupVite(app: Express, server: Server) {
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
+    // Only serve index.html for GET/HEAD requests (not POST/PUT/DELETE)
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
     const url = req.originalUrl;
 
     try {
@@ -61,7 +67,13 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // Only handle GET/HEAD requests - POST/PUT/DELETE should return 404 (not index.html)
+  // This prevents CDN from caching API endpoints as HTML pages
+  app.use("*", (req, res) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      res.status(404).set("Cache-Control", "no-store").json({ error: "Not found" });
+      return;
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
